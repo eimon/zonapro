@@ -1,0 +1,15 @@
+---
+description: Convenciones del proyecto FastAPI. Aplicar siempre al generar o modificar código.
+globs: ["**/*.py"]
+alwaysApply: true
+---
+
+Seguir todas las convenciones definidas en @CONVENTIONS.md.
+
+Reglas críticas que nunca se pueden violar:
+- Patrón Router → Service → Repository → DB. Nunca saltar capas.
+- Repository: `flush()` + `refresh()` siempre. Nunca `commit()`.
+- Service: lanza excepciones de `exceptions.general`, nunca devuelve `None`.
+- Soft delete: `deleted_at + is_active = False`.
+- IDs: UUID siempre, nunca enteros.
+- Sin comentarios salvo WHY no obvio.

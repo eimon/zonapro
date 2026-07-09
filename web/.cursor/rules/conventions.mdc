@@ -1,0 +1,14 @@
+---
+description: Convenciones del proyecto Next.js. Aplicar siempre al generar o modificar código.
+globs: ["**/*.tsx", "**/*.ts"]
+alwaysApply: true
+---
+
+Seguir todas las convenciones definidas en @CONVENTIONS.md.
+
+Reglas críticas que nunca se pueden violar:
+- Estilos solo con Tailwind. Sin CSS modules ni inline styles.
+- "use client" solo cuando sea necesario (estado, efectos, event handlers).
+- Textos de UI siempre en español.
+- Formularios con react-hook-form + zod.
+- Sin comentarios salvo WHY no obvio.

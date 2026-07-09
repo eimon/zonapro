@@ -1,0 +1,64 @@
+# Receta: FastAPI + Next.js + PostgreSQL
+
+services:
+  db:
+    image: postgres:16
+    container_name: ${COMPOSE_PROJECT_NAME:-zonapro}_db
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-app_db}
+      TZ: America/Argentina/Buenos_Aires
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-app_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+    container_name: ${COMPOSE_PROJECT_NAME:-zonapro}_api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./api:/app
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  web:
+    build:
+      context: ./web
+      target: dev
+    container_name: ${COMPOSE_PROJECT_NAME:-zonapro}_web
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-8000}
+      INTERNAL_API_URL: http://${COMPOSE_PROJECT_NAME:-zonapro}_api:8000
+      NEXT_PUBLIC_CLIENT_ID: ${WEB_CLIENT_ID:-mi-app}
+      NEXT_PUBLIC_CLIENT_SECRET: ${WEB_CLIENT_SECRET:-secreto-cliente}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

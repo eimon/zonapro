@@ -1,0 +1,36 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# ---- api (FastAPI) ----
+**/__pycache__/
+*.py[cod]
+api/.venv/
+api/venv/
+api/.pytest_cache/
+api/htmlcov/
+api/.coverage
+
+# ---- web (Next.js) ----
+web/node_modules/
+web/.next/
+web/out/
+web/build/
+web/next-env.d.ts
+web/*.tsbuildinfo
+web/.vercel
+web/coverage/
+web/npm-debug.log*
+web/yarn-debug.log*
+web/yarn-error.log*

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cotización {{ quote.title }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      color: #1f2937;
+      background: #ffffff;
+      padding: 40px 48px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 32px;
+      border-bottom: 3px solid {{ accent_color }};
+      padding-bottom: 20px;
+    }
+    .company-name {
+      font-size: 22px;
+      font-weight: 700;
+      color: {{ accent_color }};
+      letter-spacing: -0.5px;
+    }
+    .company-tagline {
+      font-size: 10px;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+    .company-contact {
+      font-size: 10px;
+      color: #6b7280;
+      text-align: right;
+      line-height: 1.6;
+    }
+
+    /* ── Quote title block ── */
+    .quote-title-block {
+      margin-bottom: 28px;
+    }
+    .quote-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+    .quote-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #111827;
+    }
+    .quote-meta {
+      font-size: 10px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    /* ── Two-column info ── */
+    .info-grid {
+      display: flex;
+      gap: 32px;
+      margin-bottom: 28px;
+    }
+    .info-block {
+      flex: 1;
+      background: #f9fafb;
+      border-radius: 6px;
+      padding: 14px 16px;
+    }
+    .info-block h3 {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: {{ accent_color }};
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .info-row {
+      display: flex;
+      margin-bottom: 4px;
+    }
+    .info-label {
+      font-size: 10px;
+      color: #9ca3af;
+      width: 90px;
+      flex-shrink: 0;
+    }
+    .info-value {
+      font-size: 10px;
+      color: #1f2937;
+      font-weight: 500;
+    }
+
+    /* ── Items table ── */
+    .items-section {
+      margin-bottom: 24px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #374151;
+      margin-bottom: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead tr {
+      background-color: {{ accent_color }};
+      color: #ffffff;
+    }
+    thead th {
+      padding: 8px 10px;
+      font-size: 10px;
+      font-weight: 600;
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    thead th.right {
+      text-align: right;
+    }
+    tbody tr:nth-child(even) {
+      background-color: #f9fafb;
+    }
+    tbody td {
+      padding: 8px 10px;
+      font-size: 11px;
+      color: #374151;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+    }
+    tbody td.right {
+      text-align: right;
+    }
+    .item-description {
+      font-weight: 500;
+      color: #111827;
+    }
+    .item-meta {
+      font-size: 9px;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+
+    /* ── Total row ── */
+    .total-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+    .total-box {
+      background: #111827;
+      color: #ffffff;
+      border-radius: 6px;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .total-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #9ca3af;
+    }
+    .total-amount {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    /* ── Notes ── */
+    .notes-section {
+      margin-top: 24px;
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      border-radius: 4px;
+      padding: 12px 16px;
+    }
+    .notes-section h3 {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #92400e;
+      margin-bottom: 6px;
+    }
+    .notes-section p {
+      font-size: 11px;
+      color: #78350f;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 40px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-left {
+      font-size: 9px;
+      color: #9ca3af;
+      line-height: 1.6;
+    }
+    .footer-right {
+      font-size: 9px;
+      color: #9ca3af;
+      text-align: right;
+    }
+    .footer-brand {
+      font-size: 11px;
+      font-weight: 700;
+      color: {{ accent_color }};
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      {% if logo_base64 %}
+        <img src="data:image/png;base64,{{ logo_base64 }}" alt="{{ company_name }}" style="height:40px; margin-bottom:6px;" />
+      {% endif %}
+      <div class="company-name">{{ company_name }}</div>
+      <div class="company-tagline">{{ company_tagline }}</div>
+    </div>
+    <div class="company-contact">
+      {{ company_email }}<br />
+      {{ company_phone }}<br />
+      {{ company_address }}
+    </div>
+  </div>
+
+  <!-- Quote title block -->
+  <div class="quote-title-block">
+    <div class="quote-label">Cotización</div>
+    <div class="quote-title">{{ quote.title }}</div>
+    <div class="quote-meta">
+      Fecha: {{ quote.created_at.strftime("%d/%m/%Y") }} &nbsp;·&nbsp;
+      Válida hasta: {{ validity_date.strftime("%d/%m/%Y") }} &nbsp;·&nbsp;
+      Estado: {{ quote.status.value | capitalize }}
+    </div>
+  </div>
+
+  <!-- Client info -->
+  <div class="info-grid">
+    <div class="info-block">
+      <h3>Datos del cliente</h3>
+      <div class="info-row">
+        <span class="info-label">Nombre</span>
+        <span class="info-value">{{ quote.client_name }}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Email</span>
+        <span class="info-value">{{ quote.client_email }}</span>
+      </div>
+      {% if quote.client_phone %}
+      <div class="info-row">
+        <span class="info-label">Teléfono</span>
+        <span class="info-value">{{ quote.client_phone }}</span>
+      </div>
+      {% endif %}
+    </div>
+    <div class="info-block">
+      <h3>Detalle</h3>
+      <div class="info-row">
+        <span class="info-label">Validez</span>
+        <span class="info-value">{{ quote.validity_days }} días</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Ítems</span>
+        <span class="info-value">{{ items | length }}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Total</span>
+        <span class="info-value" style="font-weight:700; color:{{ accent_color }}">
+          ${{ "%.2f" | format(total | float) }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Line items -->
+  <div class="items-section">
+    <div class="section-title">Ítems de la cotización</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:42%">Descripción</th>
+          <th class="right" style="width:12%">Cant.</th>
+          <th class="right" style="width:18%">Precio unit.</th>
+          <th class="right" style="width:18%">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>
+            {% if item.kind.value == "product" %}
+              <div class="item-description">
+                {{ item.product_name_snapshot or "Producto" }}
+              </div>
+              {% if item.product_sku_snapshot %}
+                <div class="item-meta">SKU: {{ item.product_sku_snapshot }}</div>
+              {% endif %}
+            {% else %}
+              <div class="item-description">
+                {{ item.service_description or "Servicio" }}
+              </div>
+              {% if item.hours %}
+                <div class="item-meta">{{ item.hours }} hs.</div>
+              {% endif %}
+            {% endif %}
+          </td>
+          <td class="right">{{ item.quantity }}</td>
+          <td class="right">${{ "%.2f" | format(item.unit_price | float) }}</td>
+          <td class="right">${{ "%.2f" | format(item.subtotal | float) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Total -->
+  <div class="total-row">
+    <div class="total-box">
+      <span class="total-label">Total</span>
+      <span class="total-amount">${{ "%.2f" | format(total | float) }}</span>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  {% if quote.notes %}
+  <div class="notes-section">
+    <h3>Notas</h3>
+    <p>{{ quote.notes }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-left">
+      <div class="footer-brand">{{ company_name }}</div>
+      {{ company_tagline }}<br />
+      {{ company_address }}
+    </div>
+    <div class="footer-right">
+      {{ company_email }}<br />
+      {{ company_phone }}<br />
+      Este documento es una cotización y no constituye una factura.
+    </div>
+  </div>
+
+</body>
+</html>
