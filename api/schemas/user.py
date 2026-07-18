@@ -7,7 +7,6 @@ class UserCreate(BaseModel):
     nombre: str
     apellido: str
     email: EmailStr
-    password: str
     role: UserRole = UserRole.CLIENTE
 
 
@@ -25,6 +24,7 @@ class UserResponse(BaseModel):
     email: str
     role: UserRole
     is_active: bool
+    must_change_password: bool
 
     model_config = {"from_attributes": True}
 

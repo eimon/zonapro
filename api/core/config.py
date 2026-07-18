@@ -25,6 +25,11 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "postgresql+asyncpg://postgres:password@db:5432/app_db"
 
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "ZonaPro <no-reply@zona-pro.com.ar>"
+    FRONTEND_URL: str = "http://localhost:3000"
+    PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 48
+
     class Config:
         case_sensitive = True
 

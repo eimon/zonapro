@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -16,18 +17,27 @@ class UserRepository(BaseRepository[User]):
         return result.scalars().first()
 
     async def create(self, data: UserCreate) -> User:
+        # La contraseña real la define el usuario vía el link de invitación;
+        # esta es solo un placeholder aleatorio que nunca se revela.
         obj = User(
             nombre=data.nombre,
             apellido=data.apellido,
             email=data.email,
             role=data.role,
-            hashed_password=get_password_hash(data.password),
+            hashed_password=get_password_hash(secrets.token_urlsafe(32)),
             is_active=True,
+            must_change_password=True,
         )
         self.db.add(obj)
         await self.db.flush()
         await self.db.refresh(obj)
         return obj
+
+    async def set_password(self, user: User, hashed_password: str) -> None:
+        user.hashed_password = hashed_password
+        user.must_change_password = False
+        await self.db.flush()
+        await self.db.refresh(user)
 
     async def update(self, id: uuid.UUID, data: UserUpdate) -> User | None:
         obj = await self.get_by_id(id)

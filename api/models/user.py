@@ -19,3 +19,4 @@ class User(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
     hashed_password = Column(String, nullable=False)
     role = Column(SAEnum(UserRole), nullable=False, default=UserRole.CLIENTE)
     is_active = Column(Boolean, default=True, nullable=False)
+    must_change_password = Column(Boolean, default=False, nullable=False)

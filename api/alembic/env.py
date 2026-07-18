@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core.config import settings
 from core.database import Base
 from models.user import User  # noqa: F401 — registrar todos los modelos aquí
+from models.password_reset_token import PasswordResetToken  # noqa: F401
 from models.category import Category  # noqa: F401
 from models.product import Product, ProductVariant  # noqa: F401
 from models.package import Package, PackageOptionGroup, PackageOption  # noqa: F401

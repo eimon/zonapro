@@ -49,6 +49,14 @@ export type UserMe = {
   email: string;
   role: string;
   is_active: boolean;
+  must_change_password: boolean;
+};
+
+export type UserCreate = {
+  nombre: string;
+  apellido: string;
+  email: string;
+  role: "admin" | "vendedor";
 };
 
 export type Category = {
@@ -184,6 +192,12 @@ export const api = {
 
     me: (token: string) =>
       request<UserMe>("/api/v1/users/me", {}, token),
+
+    setPassword: (token: string, new_password: string) =>
+      request<void>("/api/v1/auth/set-password", {
+        method: "POST",
+        body: JSON.stringify({ token, new_password }),
+      }),
   },
 
   users: {
@@ -191,7 +205,7 @@ export const api = {
       request<UserMe[]>("/api/v1/users/", {}, token),
     get: (id: string, token: string) =>
       request<UserMe>(`/api/v1/users/${id}`, {}, token),
-    create: (data: unknown, token: string) =>
+    create: (data: UserCreate, token: string) =>
       request<UserMe>("/api/v1/users/", {
         method: "POST",
         body: JSON.stringify(data),

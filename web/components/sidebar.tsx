@@ -14,9 +14,11 @@ import {
   Settings,
   ShoppingCart,
   Store,
+  Users,
 } from "lucide-react";
 import { LogoMark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { getRole } from "@/lib/auth";
 
 const NAV_ITEMS = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -27,6 +29,10 @@ const NAV_ITEMS = [
   { href: "/dashboard/ordenes", icon: ShoppingCart, label: "Órdenes" },
 ];
 
+const ADMIN_NAV_ITEMS = [
+  { href: "/dashboard/usuarios", icon: Users, label: "Usuarios" },
+];
+
 const BOTTOM_ITEMS = [
   { href: "/dashboard/configuracion", icon: Settings, label: "Configuración" },
 ];
@@ -35,9 +41,11 @@ export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    setIsAdmin(getRole() === "ADMIN");
     const saved = localStorage.getItem("sidebar-collapsed");
     if (saved !== null) setCollapsed(saved === "true");
   }, []);
@@ -89,7 +97,7 @@ export function Sidebar() {
 
       {/* Main nav */}
       <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
-        {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+        {(isAdmin ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS).map(({ href, icon: Icon, label }) => {
           const isActive =
             href === "/dashboard"
               ? pathname === href

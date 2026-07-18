@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Invitación a {{ company_name }}</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f4f5; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5; padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; background-color:#ffffff; border-radius:12px; overflow:hidden;">
+          <tr>
+            <td style="background-color:{{ accent_color }}; padding:24px 32px;">
+              <span style="font-size:18px; font-weight:700; color:#ffffff; letter-spacing:-0.3px;">{{ company_name }}</span>
+              <div style="font-size:11px; color:#ffffff; opacity:0.85; margin-top:2px;">{{ company_tagline }}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="font-size:15px; color:#18181b; margin:0 0 16px;">Hola {{ nombre }},</p>
+              <p style="font-size:14px; color:#3f3f46; line-height:1.6; margin:0 0 24px;">
+                Se creó una cuenta para vos en {{ company_name }} con rol de <strong>{{ role_label }}</strong>.
+                Para poder ingresar, primero necesitás definir tu contraseña.
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="border-radius:8px; background-color:{{ accent_color }};">
+                    <a href="{{ set_password_url }}" style="display:inline-block; padding:12px 28px; font-size:14px; font-weight:600; color:#ffffff; text-decoration:none;">
+                      Crear mi contraseña
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="font-size:12px; color:#71717a; line-height:1.6; margin:0;">
+                Este enlace vence en 48 horas. Si no esperabas esta invitación, podés ignorar este correo.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px; border-top:1px solid #e4e4e7;">
+              <p style="font-size:11px; color:#a1a1aa; margin:0;">{{ company_name }} · {{ company_email }}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
