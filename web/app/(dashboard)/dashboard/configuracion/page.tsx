@@ -116,7 +116,7 @@ export default function ConfiguracionPage() {
     <div className="max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">Configuración</h1>
-        <p className="text-zinc-500 dark:text-zinc-400 mt-1">Preferencias generales de la cuenta.</p>
+        <p className="text-zinc-500 dark:text-zinc-400 mt-1">Preferencias generales del sistema.</p>
       </div>
 
       {error && (
@@ -173,14 +173,12 @@ export default function ConfiguracionPage() {
             aria-checked={registrationEnabled}
             onClick={handleToggleRegistration}
             disabled={registrationSaving}
-            className={`relative w-11 h-6 rounded-full transition-colors duration-150 shrink-0 disabled:opacity-50 cursor-pointer ${
-              registrationEnabled ? "bg-brand-green" : "bg-zinc-200 dark:bg-zinc-700"
-            }`}
+            className={`relative w-11 h-6 rounded-full transition-colors duration-150 shrink-0 disabled:opacity-50 cursor-pointer ${registrationEnabled ? "bg-brand-green" : "bg-zinc-200 dark:bg-zinc-700"
+              }`}
           >
             <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
-                registrationEnabled ? "translate-x-5" : "translate-x-0"
-              }`}
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${registrationEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
             />
           </button>
         </label>

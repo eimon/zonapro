@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, type Product } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 import Image from "next/image";
 import Link from "next/link";
 import { Package, Pencil, Plus, Search, Trash2 } from "lucide-react";
@@ -69,7 +70,13 @@ function EmptyState({ search }: { search: string }) {
   );
 }
 
-function ProductCard({ product }: { product: Product }) {
+function ProductCard({
+  product,
+  onDelete,
+}: {
+  product: Product;
+  onDelete: (product: Product) => void;
+}) {
   const stock = totalStock(product);
   const price = lowestPrice(product);
   return (
@@ -87,14 +94,16 @@ function ProductCard({ product }: { product: Product }) {
           <p className="text-xs text-zinc-400 dark:text-zinc-500 font-mono truncate">{product.slug}</p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button
+          <Link
+            href={`/dashboard/productos/${product.id}/editar`}
             title="Editar"
             className="p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-brand-green hover:bg-brand-green/10 transition-colors duration-150 cursor-pointer"
           >
             <Pencil className="w-4 h-4" />
-          </button>
+          </Link>
           <button
             title="Eliminar"
+            onClick={() => onDelete(product)}
             className="p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-150 cursor-pointer"
           >
             <Trash2 className="w-4 h-4" />
@@ -154,6 +163,7 @@ export default function ProductosPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.products
@@ -162,6 +172,19 @@ export default function ProductosPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDelete = async (product: Product) => {
+    const token = getToken();
+    if (!token) return;
+    if (!window.confirm(`¿Eliminar "${product.name}"? Esta acción no se puede deshacer.`)) return;
+    setError(null);
+    try {
+      await api.products.remove(product.id, token);
+      setProducts((prev) => prev.filter((p) => p.id !== product.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al eliminar el producto");
+    }
+  };
 
   const filtered = products.filter(
     (p) =>
@@ -191,6 +214,8 @@ export default function ProductosPage() {
           Nuevo producto
         </Link>
       </div>
+
+      {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
       {/* Search */}
       <div className="relative max-w-sm">
@@ -314,14 +339,16 @@ export default function ProductosPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                        <button
+                        <Link
+                          href={`/dashboard/productos/${product.id}/editar`}
                           title="Editar"
                           className="p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-brand-green hover:bg-brand-green/10 transition-colors duration-150 cursor-pointer"
                         >
                           <Pencil className="w-4 h-4" />
-                        </button>
+                        </Link>
                         <button
                           title="Eliminar"
+                          onClick={() => handleDelete(product)}
                           className="p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-150 cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -347,7 +374,9 @@ export default function ProductosPage() {
         ) : filtered.length === 0 ? (
           <EmptyState search={search} />
         ) : (
-          filtered.map((product) => <ProductCard key={product.id} product={product} />)
+          filtered.map((product) => (
+            <ProductCard key={product.id} product={product} onDelete={handleDelete} />
+          ))
         )}
       </div>
     </div>

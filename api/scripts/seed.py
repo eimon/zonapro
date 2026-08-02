@@ -23,7 +23,7 @@ from models.product import Product, ProductVariant
 ADMIN = {
     "nombre": "Admin",
     "apellido": "ZonaPro",
-    "email": "admin@zonapro.com",
+    "email": "admin@zona-pro.com.ar",
     "password": "Admin1234!",
     "role": UserRole.ADMIN,
 }
