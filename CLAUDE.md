@@ -14,6 +14,10 @@ All services run via Docker Compose. The `.env` file at repo root is used by `do
 ## Running the project
 
 ```bash
+# First run only: the api container runs as a non-root user and can't create
+# this bind-mounted dir itself, so product image uploads need it pre-created.
+mkdir -p api/uploads/products && chmod 777 api/uploads api/uploads/products
+
 # Start all services (db, api, web)
 docker compose up -d
 

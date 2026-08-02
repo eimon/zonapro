@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from core.config import settings
 import models  # noqa: F401
 from routers import users, auth, category, product, package, consultation, quote
@@ -33,6 +36,18 @@ app.include_router(package.router)
 app.include_router(consultation.router)
 app.include_router(quote.router)
 app.include_router(settings_router.router)
+
+UPLOADS_DIR = Path(__file__).parent / "uploads"
+try:
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    (UPLOADS_DIR / "products").mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+except PermissionError:
+    logging.warning(
+        "Could not create/mount %s (permission denied on the bind-mounted volume). "
+        "Run: mkdir -p api/uploads/products && chmod 777 api/uploads api/uploads/products",
+        UPLOADS_DIR,
+    )
 
 
 @app.get("/health")

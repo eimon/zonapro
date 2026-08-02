@@ -284,6 +284,20 @@ export const api = {
       request<Product>(`/api/v1/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }, token),
     remove: (id: string, token: string) =>
       request<void>(`/api/v1/products/${id}`, { method: "DELETE" }, token),
+    uploadImage: async (file: File, token: string): Promise<{ url: string }> => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_URL}/api/v1/products/upload-image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new ApiError(body.detail ?? "Error al subir la imagen", res.status);
+      }
+      return res.json();
+    },
     variants: {
       create: (productId: string, data: unknown, token: string) =>
         request<ProductVariant>(`/api/v1/products/${productId}/variants`, { method: "POST", body: JSON.stringify(data) }, token),

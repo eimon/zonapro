@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
 import { api, type Category } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { ProductImageField } from "@/components/product-image-field";
 import { ArrowLeft, Package, Layers, Plus, Trash2 } from "lucide-react";
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
@@ -26,7 +27,12 @@ const baseSchema = z.object({
     .min(1, "Slug requerido")
     .regex(/^[a-z0-9-]+$/, "Solo letras minúsculas, números y guiones"),
   description: z.string().optional(),
-  image_url: z.string().url("URL inválida").optional().or(z.literal("")),
+  image_url: z
+    .string()
+    .refine((v) => v === "" || v.startsWith("/") || /^https?:\/\//i.test(v), {
+      message: "URL inválida",
+    })
+    .optional(),
   category_id: z.string().optional(),
   made_to_order: z.boolean(),
   // simple mode
@@ -250,12 +256,13 @@ export default function NuevoProductoPage() {
             />
           </InputField>
 
-          <InputField label="URL de imagen" error={errors.image_url?.message}>
-            <input
-              type="text"
-              placeholder="https://..."
-              className={inputClass}
-              {...register("image_url")}
+          <InputField label="Imagen" error={errors.image_url?.message}>
+            <Controller
+              control={control}
+              name="image_url"
+              render={({ field }) => (
+                <ProductImageField value={field.value ?? ""} onChange={field.onChange} />
+              )}
             />
           </InputField>
 

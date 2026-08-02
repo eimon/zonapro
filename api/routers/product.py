@@ -1,9 +1,10 @@
 import uuid
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import settings
 from core.database import get_db
 from core.roles import Permission
+from core.uploads import save_product_image
 from dependencies.auth import has_role
 from services.product_service import ProductService
 from schemas.product import (
@@ -41,6 +42,15 @@ async def create_product(
     _=Depends(has_role(Permission.PRODUCT_MANAGE)),
 ):
     return await ProductService(db).create(data)
+
+
+@router.post("/upload-image")
+async def upload_product_image(
+    file: UploadFile = File(...),
+    _=Depends(has_role(Permission.PRODUCT_MANAGE)),
+):
+    url = await save_product_image(file)
+    return {"url": url}
 
 
 @router.get("/{product_id}", response_model=ProductResponse)
