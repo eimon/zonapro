@@ -2,7 +2,7 @@ import secrets
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from models.user import User
+from models.user import User, UserRole
 from schemas.user import UserCreate, UserUpdate
 from core.security import get_password_hash
 from repositories.base import BaseRepository
@@ -27,6 +27,23 @@ class UserRepository(BaseRepository[User]):
             hashed_password=get_password_hash(secrets.token_urlsafe(32)),
             is_active=True,
             must_change_password=True,
+        )
+        self.db.add(obj)
+        await self.db.flush()
+        await self.db.refresh(obj)
+        return obj
+
+    async def create_self_registered(
+        self, nombre: str, apellido: str, email: str, password: str
+    ) -> User:
+        obj = User(
+            nombre=nombre,
+            apellido=apellido,
+            email=email,
+            role=UserRole.CLIENTE,
+            hashed_password=get_password_hash(password),
+            is_active=True,
+            must_change_password=False,
         )
         self.db.add(obj)
         await self.db.flush()

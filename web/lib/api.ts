@@ -62,6 +62,16 @@ export type UserMe = {
   must_change_password: boolean;
 };
 
+export type UserRegister = {
+  nombre: string;
+  apellido: string;
+  email: string;
+  password: string;
+};
+
+export type RegistrationEnabled = { key: string; enabled: boolean };
+export type ResendApiKeyStatus = { key: string; is_set: boolean; masked: string | null };
+
 export type UserCreate = {
   nombre: string;
   apellido: string;
@@ -221,6 +231,12 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ token }),
       }),
+
+    register: (data: UserRegister) =>
+      request<TokenResponse>("/api/v1/auth/register", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
 
   users: {
@@ -335,6 +351,24 @@ export const api = {
     setHourlyRate: (value: string, token: string) =>
       request<{ key: string; value: string }>(
         "/api/v1/settings/hourly-rate",
+        { method: "PATCH", body: JSON.stringify({ value }) },
+        token,
+      ),
+
+    getRegistrationEnabled: () =>
+      request<RegistrationEnabled>("/api/v1/settings/registration-enabled"),
+    setRegistrationEnabled: (enabled: boolean, token: string) =>
+      request<RegistrationEnabled>(
+        "/api/v1/settings/registration-enabled",
+        { method: "PATCH", body: JSON.stringify({ enabled }) },
+        token,
+      ),
+
+    getResendApiKey: (token: string) =>
+      request<ResendApiKeyStatus>("/api/v1/settings/resend-api-key", {}, token),
+    setResendApiKey: (value: string, token: string) =>
+      request<ResendApiKeyStatus>(
+        "/api/v1/settings/resend-api-key",
         { method: "PATCH", body: JSON.stringify({ value }) },
         token,
       ),

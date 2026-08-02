@@ -2,7 +2,8 @@ import uuid
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.pricing import quote_total, installation_cost_amount
-from repositories.quote_repository import QuoteRepository, AppSettingRepository
+from repositories.app_setting_repository import AppSettingRepository
+from repositories.quote_repository import QuoteRepository
 from repositories.product_repository import ProductVariantRepository
 from schemas.quote import QuoteCreate, QuoteUpdate, QuoteItemCreate
 from models.quote import Quote, QuoteItem

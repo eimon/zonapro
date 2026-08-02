@@ -2,8 +2,10 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import settings
+from repositories.app_setting_repository import AppSettingRepository
 from repositories.password_reset_token_repository import PasswordResetTokenRepository
 from repositories.user_repository import UserRepository
+from schemas.user import UserRegister
 from core.security import (
     create_access_token,
     decode_token_allow_expired,
@@ -11,13 +13,14 @@ from core.security import (
     hash_refresh_token,
     verify_password,
 )
-from exceptions.general import BadRequestException, UnauthorizedException
+from exceptions.general import BadRequestException, ConflictException, ForbiddenException, UnauthorizedException
 
 
 class AuthService:
     def __init__(self, db: AsyncSession):
         self.repo = UserRepository(db)
         self.token_repo = PasswordResetTokenRepository(db)
+        self.setting_repo = AppSettingRepository(db)
 
     async def login(self, email: str, password: str) -> str:
         user = await self.repo.get_by_email(email)
@@ -52,6 +55,23 @@ class AuthService:
             claims={"role": user.role.value},
             issued_at=datetime.fromtimestamp(issued_at, tz=timezone.utc),
         )
+
+    async def register(self, data: UserRegister) -> str:
+        enabled = await self.setting_repo.get_value("registration_enabled")
+        if enabled != "true":
+            raise ForbiddenException("El registro de nuevas cuentas no está habilitado")
+
+        existing = await self.repo.get_by_email(data.email)
+        if existing:
+            raise ConflictException("Ya existe una cuenta con ese email")
+
+        user = await self.repo.create_self_registered(
+            nombre=data.nombre,
+            apellido=data.apellido,
+            email=str(data.email),
+            password=data.password,
+        )
+        return create_access_token(subject=str(user.id), claims={"role": user.role.value})
 
     async def set_password(self, token: str, new_password: str) -> None:
         token_hash = hash_refresh_token(token)

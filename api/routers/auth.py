@@ -6,7 +6,7 @@ from core.database import get_db
 from dependencies.auth import verify_client
 from services.auth_service import AuthService
 from schemas.password_reset import SetPasswordRequest
-from schemas.user import RefreshRequest, TokenResponse
+from schemas.user import RefreshRequest, TokenResponse, UserRegister
 
 router = APIRouter(prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 
@@ -28,6 +28,16 @@ async def refresh(
 ):
     service = AuthService(db)
     token = await service.refresh(data.token)
+    return TokenResponse(access_token=token)
+
+
+@router.post("/register", response_model=TokenResponse, status_code=201)
+async def register(
+    data: UserRegister,
+    db: AsyncSession = Depends(get_db),
+):
+    service = AuthService(db)
+    token = await service.register(data)
     return TokenResponse(access_token=token)
 
 

@@ -1,5 +1,5 @@
 import uuid
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from models.user import UserRole
 
 
@@ -8,6 +8,13 @@ class UserCreate(BaseModel):
     apellido: str
     email: EmailStr
     role: UserRole = UserRole.CLIENTE
+
+
+class UserRegister(BaseModel):
+    nombre: str
+    apellido: str
+    email: EmailStr
+    password: str = Field(min_length=8)
 
 
 class UserUpdate(BaseModel):

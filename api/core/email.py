@@ -6,14 +6,18 @@ from jinja2 import Environment, FileSystemLoader
 from core.config import settings
 from core.branding import ACCENT_COLOR, COMPANY_EMAIL, COMPANY_NAME, COMPANY_TAGLINE
 
-resend.api_key = settings.RESEND_API_KEY
-
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 
 ROLE_LABELS = {"admin": "Administrador", "vendedor": "Vendedor", "cliente": "Cliente"}
 
 
-def send_invite_email(to_email: str, nombre: str, role: str, set_password_url: str) -> None:
+def send_invite_email(
+    to_email: str, nombre: str, role: str, set_password_url: str, api_key: str | None = None
+) -> None:
+    # The key can be configured at runtime (Configuración → Resend), so it's resolved
+    # per-send rather than once at import time; falls back to the env var if unset.
+    resend.api_key = api_key or settings.RESEND_API_KEY
+
     env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)))
     template = env.get_template("invite_email.html")
 
