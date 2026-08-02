@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Wind, Home, Leaf, Sun, Users, Zap, Shield, ArrowRight, MessageSquare } from "lucide-react";
 import { Footer } from "@/components/footer";
+import { HeroBackground } from "@/components/hero-background";
 import { PublicNav } from "@/components/public-nav";
 
 const SERVICES = [
@@ -38,18 +39,18 @@ export default function HomePage() {
       <PublicNav />
 
       {/* Hero */}
-      <section className="relative flex min-h-screen items-center justify-center px-6 pt-20">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-green/10 via-zinc-50 to-zinc-50 dark:via-zinc-950 dark:to-zinc-950 pointer-events-none" />
+      <section className="relative flex min-h-screen items-center justify-center px-6 pt-20 overflow-hidden">
+        <HeroBackground />
         <div className="relative max-w-4xl mx-auto text-center space-y-8">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-green/10 border border-brand-green/20 text-brand-green text-xs font-medium tracking-widest uppercase">
             Hogares · Comercios · Empresas
           </div>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-zinc-900 dark:text-white leading-[1.05]">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-white leading-[1.05]">
             Tecnología que conecta,{" "}
             <span className="text-brand-green">eficiencia</span>{" "}
             que transforma.
           </h1>
-          <p className="text-lg text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed">
             Soluciones inteligentes en climatización, domótica, eficiencia térmica y energía solar.
             Diseñadas y ejecutadas por expertos.
           </p>
@@ -63,7 +64,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/consulta"
-              className="flex items-center gap-2 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white font-medium px-6 py-3 rounded-xl transition-colors duration-150"
+              className="flex items-center gap-2 border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white font-medium px-6 py-3 rounded-xl transition-colors duration-150"
             >
               <MessageSquare className="w-4 h-4" />
               Consultanos
