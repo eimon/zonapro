@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,16 +9,26 @@ import {
   FileText,
   LayoutDashboard,
   Layers,
+  LogOut,
   MessageSquare,
   Package,
   Settings,
   ShoppingCart,
   Store,
+  User,
   Users,
 } from "lucide-react";
 import { LogoMark } from "@/components/logo";
+import { LogoutConfirmDialog } from "@/components/logout-confirm-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { getRole } from "@/lib/auth";
+import { getRole, subscribeAuth } from "@/lib/auth";
+import {
+  getSidebarCollapsedServerSnapshot,
+  getSidebarCollapsedSnapshot,
+  setSidebarCollapsed,
+  subscribeSidebarCollapsed,
+} from "@/lib/sidebar-store";
+import { useLogout } from "@/lib/use-logout";
 
 const NAV_ITEMS = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -34,31 +44,25 @@ const ADMIN_NAV_ITEMS = [
 ];
 
 const BOTTOM_ITEMS = [
+  { href: "/dashboard/perfil", icon: User, label: "Mi perfil" },
   { href: "/dashboard/configuracion", icon: Settings, label: "Configuración" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const collapsed = useSyncExternalStore(
+    subscribeSidebarCollapsed,
+    getSidebarCollapsedSnapshot,
+    getSidebarCollapsedServerSnapshot,
+  );
+  const isAdmin = useSyncExternalStore(
+    subscribeAuth,
+    () => getRole() === "ADMIN",
+    () => false,
+  );
 
-  useEffect(() => {
-    setMounted(true);
-    setIsAdmin(getRole() === "ADMIN");
-    const saved = localStorage.getItem("sidebar-collapsed");
-    if (saved !== null) setCollapsed(saved === "true");
-  }, []);
-
-  const toggle = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    localStorage.setItem("sidebar-collapsed", String(next));
-  };
-
-  if (!mounted) {
-    return <aside className="w-64 shrink-0 bg-brand-blue" />;
-  }
+  const toggle = () => setSidebarCollapsed(!collapsed);
+  const { confirmOpen, requestLogout, cancelLogout, confirmLogout } = useLogout();
 
   return (
     <aside
@@ -144,7 +148,17 @@ export function Sidebar() {
           <Store className="w-5 h-5 shrink-0" />
           {!collapsed && <span>Ir a la tienda</span>}
         </Link>
+        <button
+          onClick={requestLogout}
+          title={collapsed ? "Cerrar sesión" : undefined}
+          className="flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer whitespace-nowrap w-full"
+        >
+          <LogOut className="w-5 h-5 shrink-0" />
+          {!collapsed && <span>Cerrar sesión</span>}
+        </button>
       </div>
+
+      <LogoutConfirmDialog open={confirmOpen} onCancel={cancelLogout} onConfirm={confirmLogout} />
     </aside>
   );
 }

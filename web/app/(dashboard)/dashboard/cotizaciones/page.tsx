@@ -69,7 +69,7 @@ export default function CotizacionesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">Cotizaciones</h1>
         <Link
-          href="/cotizaciones/nueva"
+          href="/dashboard/cotizaciones/nueva"
           className="inline-flex items-center gap-2 rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-zinc-950 transition-[filter] hover:brightness-110 active:brightness-95"
         >
           + Nueva cotización

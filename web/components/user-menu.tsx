@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   FileText,
@@ -12,24 +11,22 @@ import {
   User,
 } from "lucide-react";
 import { api, type UserMe } from "@/lib/api";
-import { getRole, getToken, removeToken } from "@/lib/auth";
+import { getRole, getToken, subscribeAuth } from "@/lib/auth";
+import { useLogout } from "@/lib/use-logout";
+import { LogoutConfirmDialog } from "@/components/logout-confirm-dialog";
 
 export function UserMenu() {
-  const router = useRouter();
-  const [token, setTokenState] = useState<string | null>(null);
+  const token = useSyncExternalStore(subscribeAuth, getToken, () => null);
+  const role = useSyncExternalStore(subscribeAuth, getRole, () => null);
   const [user, setUser] = useState<UserMe | null>(null);
-  const [role, setRole] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { confirmOpen, requestLogout, cancelLogout, confirmLogout } = useLogout();
 
   useEffect(() => {
-    const t = getToken();
-    if (!t) return;
-    setTokenState(t);
-    setRole(getRole());
-    api.auth.me(t).then(setUser).catch(() => {});
-  }, []);
+    if (!token) return;
+    api.auth.me(token).then(setUser).catch(() => {});
+  }, [token]);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -40,25 +37,6 @@ export function UserMenu() {
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
-
-  useEffect(() => {
-    if (!confirmOpen) return;
-    function onEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") setConfirmOpen(false);
-    }
-    document.addEventListener("keydown", onEscape);
-    return () => document.removeEventListener("keydown", onEscape);
-  }, [confirmOpen]);
-
-  function handleLogout() {
-    removeToken();
-    setTokenState(null);
-    setUser(null);
-    setRole(null);
-    setConfirmOpen(false);
-    router.push("/");
-    router.refresh();
-  }
 
   if (!token) {
     return (
@@ -160,7 +138,7 @@ export function UserMenu() {
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                setConfirmOpen(true);
+                requestLogout();
               }}
               className="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-red-500 dark:text-red-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-300 transition-colors duration-150 cursor-pointer"
             >
@@ -171,30 +149,7 @@ export function UserMenu() {
         </div>
       )}
 
-      {confirmOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="w-full max-w-sm rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-2xl">
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-white">¿Cerrar sesión?</h2>
-            <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-              Vas a salir de tu cuenta. Podés volver a ingresar cuando quieras.
-            </p>
-            <div className="mt-5 flex justify-end gap-2.5">
-              <button
-                onClick={() => setConfirmOpen(false)}
-                className="px-3.5 py-2 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors duration-150 cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-3.5 py-2 rounded-lg text-sm font-medium bg-red-500 hover:bg-red-400 text-white dark:text-zinc-950 transition-colors duration-150 cursor-pointer"
-              >
-                Cerrar sesión
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <LogoutConfirmDialog open={confirmOpen} onCancel={cancelLogout} onConfirm={confirmLogout} />
     </div>
   );
 }

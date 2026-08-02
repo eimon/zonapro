@@ -57,7 +57,7 @@ export default function NuevaCotizacionPage() {
         },
         token,
       );
-      router.push("/cotizaciones");
+      router.push("/dashboard/cotizaciones");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al guardar");
     } finally {
@@ -224,7 +224,7 @@ export default function NuevaCotizacionPage() {
           </button>
           <button
             type="button"
-            onClick={() => router.push("/cotizaciones")}
+            onClick={() => router.push("/dashboard/cotizaciones")}
             className="inline-flex items-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
           >
             Cancelar

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
@@ -91,7 +91,6 @@ export default function NuevoProductoPage() {
     register,
     handleSubmit,
     control,
-    watch,
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
@@ -105,7 +104,7 @@ export default function NuevoProductoPage() {
 
   const { fields, append, remove } = useFieldArray({ control, name: "variants" });
 
-  const nameValue = watch("name");
+  const nameValue = useWatch({ control, name: "name" });
 
   useEffect(() => {
     if (nameValue) setValue("slug", slugify(nameValue), { shouldValidate: false });

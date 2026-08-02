@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
+import {
+  getThemeServerSnapshot,
+  getThemeSnapshot,
+  setTheme,
+  subscribeTheme,
+} from "@/lib/theme-store";
 
 const VARIANT_CLASSES = {
   default:
@@ -17,23 +23,10 @@ export function ThemeToggle({
   className?: string;
   variant?: keyof typeof VARIANT_CLASSES;
 }) {
-  const [mounted, setMounted] = useState(false);
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    setIsDark(document.documentElement.classList.contains("dark"));
-  }, []);
+  const isDark = useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeServerSnapshot);
 
   function toggle() {
-    const next = !isDark;
-    setIsDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
-  }
-
-  if (!mounted) {
-    return <span className={`w-9 h-9 shrink-0 ${className}`} />;
+    setTheme(!isDark);
   }
 
   return (
