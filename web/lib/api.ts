@@ -3,6 +3,15 @@ const API_URL =
     ? (process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")
     : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000");
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -23,7 +32,7 @@ async function request<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? body.message ?? `HTTP ${res.status}`);
+    throw new ApiError(body.detail ?? body.message ?? `HTTP ${res.status}`, res.status);
   }
 
   if (res.status === 204) return undefined as T;
@@ -205,6 +214,12 @@ export const api = {
       request<void>("/api/v1/auth/set-password", {
         method: "POST",
         body: JSON.stringify({ token, new_password }),
+      }),
+
+    refresh: (token: string) =>
+      request<TokenResponse>("/api/v1/auth/refresh", {
+        method: "POST",
+        body: JSON.stringify({ token }),
       }),
   },
 
