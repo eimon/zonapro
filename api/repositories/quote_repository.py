@@ -20,6 +20,7 @@ class QuoteRepository(BaseRepository[Quote]):
                 selectinload(Quote.items).selectinload(QuoteItem.variant),
                 selectinload(Quote.consultation),
                 selectinload(Quote.created_by),
+                selectinload(Quote.updated_by),
             )
         )
         return result.scalars().first()
@@ -28,7 +29,7 @@ class QuoteRepository(BaseRepository[Quote]):
         result = await self.db.execute(
             select(Quote)
             .where(Quote.created_by_id == user_id, Quote.deleted_at.is_(None))
-            .options(selectinload(Quote.items))
+            .options(selectinload(Quote.items), selectinload(Quote.updated_by))
             .order_by(Quote.created_at.desc())
         )
         return list(result.scalars().all())
@@ -37,7 +38,7 @@ class QuoteRepository(BaseRepository[Quote]):
         result = await self.db.execute(
             select(Quote)
             .where(Quote.deleted_at.is_(None))
-            .options(selectinload(Quote.items))
+            .options(selectinload(Quote.items), selectinload(Quote.updated_by))
             .order_by(Quote.created_at.desc())
         )
         return list(result.scalars().all())
@@ -52,6 +53,8 @@ class QuoteRepository(BaseRepository[Quote]):
         validity_days: int = 30,
         notes: str | None = None,
         consultation_id: uuid.UUID | None = None,
+        installation_cost_type=None,
+        installation_cost_value: Decimal | None = None,
         cost_notes: str | None = None,
         margin_notes: str | None = None,
         internal_comments: str | None = None,
@@ -65,6 +68,8 @@ class QuoteRepository(BaseRepository[Quote]):
             notes=notes,
             consultation_id=consultation_id,
             created_by_id=created_by_id,
+            installation_cost_type=installation_cost_type,
+            installation_cost_value=installation_cost_value,
             cost_notes=cost_notes,
             margin_notes=margin_notes,
             internal_comments=internal_comments,

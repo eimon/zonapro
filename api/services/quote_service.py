@@ -1,12 +1,13 @@
 import uuid
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
+from core.pricing import quote_total, installation_cost_amount
 from repositories.quote_repository import QuoteRepository, AppSettingRepository
 from repositories.product_repository import ProductVariantRepository
 from schemas.quote import QuoteCreate, QuoteUpdate, QuoteItemCreate
 from models.quote import Quote, QuoteItem
 from models.user import User
-from models.enums import QuoteItemKind, QuoteStatus
+from models.enums import QuoteItemKind, QuoteStatus, InstallationCostType
 from exceptions.general import NotFoundException, ForbiddenException, BadRequestException
 
 # Valid forward transitions only
@@ -19,14 +20,25 @@ VALID_TRANSITIONS: dict[QuoteStatus, list[QuoteStatus]] = {
 }
 
 
-def _compute_total(quote: Quote) -> Decimal:
-    return sum((item.subtotal for item in quote.items), Decimal("0"))
-
-
 def _add_total(quote: Quote) -> Quote:
-    """Attach a computed total attribute to the quote instance."""
-    quote.total = _compute_total(quote)
+    """Attach computed, non-persisted attributes the response schema needs."""
+    quote.total = quote_total(quote)
+    quote.installation_cost_amount = installation_cost_amount(quote)
+    quote.updated_by_name = (
+        f"{quote.updated_by.nombre} {quote.updated_by.apellido}" if quote.updated_by else None
+    )
     return quote
+
+
+def _validate_installation_cost(cost_type, cost_value: Decimal | None) -> None:
+    if cost_type is None:
+        return
+    if cost_value is None:
+        raise BadRequestException("Debés indicar un valor para el costo de instalación")
+    if cost_value < 0:
+        raise BadRequestException("El costo de instalación no puede ser negativo")
+    if cost_type == InstallationCostType.percentage and cost_value > 100:
+        raise BadRequestException("El porcentaje de instalación no puede superar 100")
 
 
 class QuoteService:
@@ -45,6 +57,7 @@ class QuoteService:
                 raise ForbiddenException("No autorizado para ver esta cotización")
 
     async def create(self, data: QuoteCreate, created_by_id: uuid.UUID) -> Quote:
+        _validate_installation_cost(data.installation_cost_type, data.installation_cost_value)
         hourly_rate = await self.get_hourly_rate()
 
         quote = await self.repo.create_quote(
@@ -55,6 +68,8 @@ class QuoteService:
             validity_days=data.validity_days,
             notes=data.notes,
             consultation_id=data.consultation_id,
+            installation_cost_type=data.installation_cost_type,
+            installation_cost_value=data.installation_cost_value,
             created_by_id=created_by_id,
             cost_notes=data.cost_notes,
             margin_notes=data.margin_notes,
@@ -137,7 +152,15 @@ class QuoteService:
                     f"No se puede cambiar de '{quote.status.value}' a '{new_status.value}'"
                 )
 
-        updated = await self.repo.update_quote(quote, **update_data)
+        # Validate installation cost against the effective (merged) values
+        if "installation_cost_type" in update_data or "installation_cost_value" in update_data:
+            effective_type = update_data.get("installation_cost_type", quote.installation_cost_type)
+            effective_value = update_data.get("installation_cost_value", quote.installation_cost_value)
+            _validate_installation_cost(effective_type, effective_value)
+
+        update_data["updated_by_id"] = user.id
+        await self.repo.update_quote(quote, **update_data)
+        updated = await self.repo.get_with_items(id)
         return _add_total(updated)
 
     async def delete(self, id: uuid.UUID, user: User) -> None:
@@ -157,6 +180,7 @@ class QuoteService:
 
         hourly_rate = await self.get_hourly_rate()
         await self._build_item(quote_id, data, hourly_rate)
+        await self.repo.update_quote(quote, updated_by_id=user.id)
 
         updated = await self.repo.get_with_items(quote_id)
         return _add_total(updated)
@@ -172,4 +196,4 @@ class QuoteService:
             raise NotFoundException("Ítem no encontrado en esta cotización")
 
         await self.repo.db.delete(item)
-        await self.repo.db.flush()
+        await self.repo.update_quote(quote, updated_by_id=user.id)

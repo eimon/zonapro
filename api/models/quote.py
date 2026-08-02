@@ -6,7 +6,7 @@ from sqlalchemy.types import Numeric
 from sqlalchemy import Enum as SAEnum
 from core.database import Base
 from models.base import UUIDMixin, TimestampMixin, SoftDeleteMixin
-from models.enums import QuoteStatus, QuoteItemKind
+from models.enums import QuoteStatus, QuoteItemKind, InstallationCostType
 
 
 class Quote(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
@@ -24,6 +24,10 @@ class Quote(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
         nullable=False,
         default=QuoteStatus.borrador,
     )
+
+    # Installation cost — fixed amount or percentage of the products subtotal
+    installation_cost_type = Column(SAEnum(InstallationCostType), nullable=True)
+    installation_cost_value = Column(Numeric(12, 2), nullable=True)
 
     # Internal-only fields — never serialized in client response or PDF
     cost_notes = Column(Text, nullable=True)
@@ -46,6 +50,14 @@ class Quote(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
         index=True,
     )
 
+    # Vendor who last edited this quote (null until the first edit)
+    updated_by_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True,
+    )
+
     # Relationships
     items = relationship(
         "QuoteItem",
@@ -55,6 +67,7 @@ class Quote(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
     )
     consultation = relationship("Consultation", foreign_keys=[consultation_id])
     created_by = relationship("User", foreign_keys=[created_by_id])
+    updated_by = relationship("User", foreign_keys=[updated_by_id])
 
 
 class QuoteItem(UUIDMixin, TimestampMixin, Base):

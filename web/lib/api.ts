@@ -37,6 +37,7 @@ export type ConsultationType = "product" | "package" | "free_form";
 export type ConsultationStatus = "pendiente" | "en_proceso" | "cerrada";
 export type QuoteStatus = "borrador" | "enviada" | "aprobada" | "rechazada" | "vencida";
 export type QuoteItemKind = "product" | "service";
+export type InstallationCostType = "fixed" | "percentage";
 
 // ── Tipos base ────────────────────────────────────────────────────────────────
 
@@ -159,7 +160,13 @@ export type Quote = {
   notes: string | null;
   status: QuoteStatus;
   consultation_id: string | null;
+  installation_cost_type: InstallationCostType | null;
+  installation_cost_value: string | null;
+  installation_cost_amount: string;
   created_at: string;
+  updated_at: string;
+  updated_by_id: string | null;
+  updated_by_name: string | null;
   items: QuoteItem[];
   total: string;
   // Internal fields (only present in vendor/admin responses)

@@ -156,8 +156,22 @@
     /* ── Total row ── */
     .total-row {
       display: flex;
-      justify-content: flex-end;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
       margin-top: 12px;
+    }
+    .subtotal-line {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 2px 20px;
+      font-size: 11px;
+      color: #4b5563;
+    }
+    .subtotal-line .total-amount {
+      font-size: 12px;
+      font-weight: 600;
     }
     .total-box {
       background: #111827;
@@ -290,7 +304,7 @@
       <div class="info-row">
         <span class="info-label">Total</span>
         <span class="info-value" style="font-weight:700; color:{{ accent_color }}">
-          ${{ "%.2f" | format(total | float) }}
+          ${{ total | ars }}
         </span>
       </div>
     </div>
@@ -329,8 +343,8 @@
             {% endif %}
           </td>
           <td class="right">{{ item.quantity }}</td>
-          <td class="right">${{ "%.2f" | format(item.unit_price | float) }}</td>
-          <td class="right">${{ "%.2f" | format(item.subtotal | float) }}</td>
+          <td class="right">${{ item.unit_price | ars }}</td>
+          <td class="right">${{ item.subtotal | ars }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -339,9 +353,22 @@
 
   <!-- Total -->
   <div class="total-row">
+    {% if quote.installation_cost_type %}
+    <div class="subtotal-line">
+      <span class="total-label">Subtotal productos y servicios</span>
+      <span class="total-amount">${{ subtotal | ars }}</span>
+    </div>
+    <div class="subtotal-line">
+      <span class="total-label">
+        Instalación
+        {% if installation_is_percentage %}({{ quote.installation_cost_value }}%){% endif %}
+      </span>
+      <span class="total-amount">${{ installation_amount | ars }}</span>
+    </div>
+    {% endif %}
     <div class="total-box">
       <span class="total-label">Total</span>
-      <span class="total-amount">${{ "%.2f" | format(total | float) }}</span>
+      <span class="total-amount">${{ total | ars }}</span>
     </div>
   </div>
 

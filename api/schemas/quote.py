@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Any
 from pydantic import BaseModel, EmailStr, model_validator
-from models.enums import QuoteItemKind, QuoteStatus
+from models.enums import QuoteItemKind, QuoteStatus, InstallationCostType
 
 
 class QuoteItemCreate(BaseModel):
@@ -44,6 +44,8 @@ class QuoteCreate(BaseModel):
     validity_days: int = 30
     notes: Optional[str] = None
     consultation_id: Optional[uuid.UUID] = None
+    installation_cost_type: Optional[InstallationCostType] = None
+    installation_cost_value: Optional[Decimal] = None
     # Internal fields (VENDEDOR fills these in)
     cost_notes: Optional[str] = None
     margin_notes: Optional[str] = None
@@ -58,6 +60,8 @@ class QuoteUpdate(BaseModel):
     client_phone: Optional[str] = None
     validity_days: Optional[int] = None
     notes: Optional[str] = None
+    installation_cost_type: Optional[InstallationCostType] = None
+    installation_cost_value: Optional[Decimal] = None
     cost_notes: Optional[str] = None
     margin_notes: Optional[str] = None
     internal_comments: Optional[str] = None
@@ -75,7 +79,13 @@ class QuoteClientResponse(BaseModel):
     notes: Optional[str]
     status: QuoteStatus
     consultation_id: Optional[uuid.UUID]
+    installation_cost_type: Optional[InstallationCostType]
+    installation_cost_value: Optional[Decimal]
+    installation_cost_amount: Decimal = Decimal("0")
     created_at: datetime
+    updated_at: datetime
+    updated_by_id: Optional[uuid.UUID]
+    updated_by_name: Optional[str] = None
     items: list[QuoteItemResponse] = []
     total: Decimal = Decimal("0")
 

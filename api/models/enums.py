@@ -32,6 +32,11 @@ class QuoteStatus(str, Enum):
     vencida = "vencida"
 
 
+class InstallationCostType(str, Enum):
+    fixed = "fixed"
+    percentage = "percentage"
+
+
 class OrderStatus(str, Enum):
     pendiente = "pendiente"
     pagada = "pagada"

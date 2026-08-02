@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Pencil } from "lucide-react";
 import { api, Quote, QuoteStatus } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
@@ -123,19 +124,34 @@ export default function CotizacionesPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">
-                    {new Date(quote.created_at).toLocaleDateString("es-AR")}
+                    <div>{new Date(quote.created_at).toLocaleDateString("es-AR")}</div>
+                    {quote.updated_by_id && (
+                      <div className="text-xs text-zinc-400 dark:text-zinc-500">
+                        Editada {new Date(quote.updated_at).toLocaleDateString("es-AR")}
+                        {quote.updated_by_name ? ` por ${quote.updated_by_name}` : ""}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right text-sm font-semibold text-zinc-900 dark:text-white">
                     ${Number(quote.total).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => handleExportPdf(quote.id)}
-                      disabled={pdfLoading === quote.id}
-                      className="inline-flex items-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-50 transition-colors"
-                    >
-                      {pdfLoading === quote.id ? "Generando..." : "Ver PDF"}
-                    </button>
+                    <div className="inline-flex items-center gap-2">
+                      <Link
+                        href={`/dashboard/cotizaciones/${quote.id}/editar`}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Editar
+                      </Link>
+                      <button
+                        onClick={() => handleExportPdf(quote.id)}
+                        disabled={pdfLoading === quote.id}
+                        className="inline-flex items-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+                      >
+                        {pdfLoading === quote.id ? "Generando..." : "Ver PDF"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api, type InstallationCostType, type Product } from "@/lib/api";
+import { api, type InstallationCostType, type Product, type Quote } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { QuoteItemsEditor, type QuoteItemDraft } from "@/components/quote-items-editor";
 
@@ -23,27 +23,114 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export default function NuevaCotizacionPage() {
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("es-AR", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function itemsFromQuote(quote: Quote): QuoteItemDraft[] {
+  return quote.items
+    .filter((item) => item.kind === "product")
+    .map((item) => ({
+      id: item.id,
+      product_variant_id: item.product_variant_id ?? "",
+      product_name: item.product_name_snapshot ?? "Producto",
+      product_sku: item.product_sku_snapshot ?? "",
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+    }));
+}
+
+export default function EditarCotizacionPage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [quote, setQuote] = useState<Quote | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [items, setItems] = useState<QuoteItemDraft[]>([]);
   const [installationCostType, setInstallationCostType] = useState<InstallationCostType | "">("");
   const [installationCostValue, setInstallationCostValue] = useState("");
-
-  useEffect(() => {
-    api.products.list().then(setProducts).catch(() => {});
-  }, []);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [itemBusy, setItemBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
-  } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { validity_days: 30 },
-  });
+  } = useForm<FormData>({ resolver: zodResolver(schema) });
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+    Promise.all([api.quotes.get(id, token), api.products.list()])
+      .then(([q, prods]) => {
+        setQuote(q);
+        setProducts(prods);
+        setItems(itemsFromQuote(q));
+        setInstallationCostType(q.installation_cost_type ?? "");
+        setInstallationCostValue(q.installation_cost_value ?? "");
+        reset({
+          title: q.title,
+          client_name: q.client_name,
+          client_email: q.client_email,
+          client_phone: q.client_phone ?? "",
+          validity_days: q.validity_days,
+          notes: q.notes ?? "",
+          cost_notes: q.cost_notes ?? "",
+          margin_notes: q.margin_notes ?? "",
+          internal_comments: q.internal_comments ?? "",
+        });
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar la cotización"))
+      .finally(() => setLoading(false));
+  }, [id, router, reset]);
+
+  async function handleAddItem(item: QuoteItemDraft) {
+    const token = getToken();
+    if (!token) return;
+    setItemBusy(true);
+    setError(null);
+    try {
+      const updated = await api.quotes.addItem(
+        id,
+        {
+          kind: "product",
+          product_variant_id: item.product_variant_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+        },
+        token
+      );
+      setQuote(updated);
+      setItems(itemsFromQuote(updated));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al agregar el producto");
+    } finally {
+      setItemBusy(false);
+    }
+  }
+
+  async function handleRemoveItem(index: number) {
+    const token = getToken();
+    const target = items[index];
+    if (!token || !target?.id) return;
+    setItemBusy(true);
+    setError(null);
+    try {
+      await api.quotes.removeItem(id, target.id, token);
+      const updated = await api.quotes.get(id, token);
+      setQuote(updated);
+      setItems(itemsFromQuote(updated));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al quitar el producto");
+    } finally {
+      setItemBusy(false);
+    }
+  }
 
   async function onSubmit(data: FormData) {
     const token = getToken();
@@ -54,7 +141,8 @@ export default function NuevaCotizacionPage() {
     setSaving(true);
     setError(null);
     try {
-      await api.quotes.create(
+      await api.quotes.update(
+        id,
         {
           ...data,
           client_phone: data.client_phone || null,
@@ -64,30 +152,41 @@ export default function NuevaCotizacionPage() {
           internal_comments: data.internal_comments || null,
           installation_cost_type: installationCostType || null,
           installation_cost_value: installationCostType ? installationCostValue || "0" : null,
-          items: items.map((item) => ({
-            kind: "product",
-            product_variant_id: item.product_variant_id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-          })),
         },
-        token,
+        token
       );
       router.push("/dashboard/cotizaciones");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error al guardar");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al guardar los cambios");
     } finally {
       setSaving(false);
     }
   }
 
+  if (loading) {
+    return <p className="text-sm text-zinc-500 dark:text-zinc-400">Cargando cotización...</p>;
+  }
+
+  if (!quote) {
+    return (
+      <p className="text-sm text-red-500 dark:text-red-400">
+        {error ?? "Cotización no encontrada"}
+      </p>
+    );
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">Nueva cotización</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">Editar cotización</h1>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          Completá los datos para crear un borrador de cotización.
+          Modificá los datos, productos y costo de instalación de la cotización.
         </p>
+        {quote.updated_by_id && (
+          <p className="mt-1.5 text-xs text-zinc-400 dark:text-zinc-500">
+            Última edición: {formatDateTime(quote.updated_at)} por {quote.updated_by_name}
+          </p>
+        )}
       </div>
 
       {error && (
@@ -105,7 +204,6 @@ export default function NuevaCotizacionPage() {
           <input
             {...register("title")}
             className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
-            placeholder="Ej. Sistema domótico residencial"
           />
           {errors.title && (
             <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.title.message}</p>
@@ -120,7 +218,6 @@ export default function NuevaCotizacionPage() {
           <input
             {...register("client_name")}
             className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
-            placeholder="Juan García"
           />
           {errors.client_name && (
             <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.client_name.message}</p>
@@ -137,7 +234,6 @@ export default function NuevaCotizacionPage() {
               {...register("client_email")}
               type="email"
               className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
-              placeholder="juan@email.com"
             />
             {errors.client_email && (
               <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.client_email.message}</p>
@@ -150,7 +246,6 @@ export default function NuevaCotizacionPage() {
             <input
               {...register("client_phone")}
               className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
-              placeholder="+54 9 11 1234-5678"
             />
           </div>
         </div>
@@ -180,20 +275,20 @@ export default function NuevaCotizacionPage() {
             {...register("notes")}
             rows={3}
             className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
-            placeholder="Condiciones de pago, plazos, garantías..."
           />
         </div>
 
         {/* Products + installation cost */}
         <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-4">
-            Productos
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Productos</p>
+            {itemBusy && <p className="text-xs text-zinc-400">Guardando…</p>}
+          </div>
           <QuoteItemsEditor
             products={products}
             items={items}
-            onAdd={(item) => setItems((prev) => [...prev, item])}
-            onRemove={(index) => setItems((prev) => prev.filter((_, i) => i !== index))}
+            onAdd={handleAddItem}
+            onRemove={handleRemoveItem}
             installationCostType={installationCostType}
             installationCostValue={installationCostValue}
             onInstallationCostTypeChange={setInstallationCostType}
@@ -216,7 +311,6 @@ export default function NuevaCotizacionPage() {
                 {...register("cost_notes")}
                 rows={2}
                 className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
-                placeholder="Desglose de costos internos..."
               />
             </div>
 
@@ -228,7 +322,6 @@ export default function NuevaCotizacionPage() {
                 {...register("margin_notes")}
                 rows={2}
                 className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
-                placeholder="Margen aplicado, descuentos, etc..."
               />
             </div>
 
@@ -240,7 +333,6 @@ export default function NuevaCotizacionPage() {
                 {...register("internal_comments")}
                 rows={2}
                 className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
-                placeholder="Notas del equipo..."
               />
             </div>
           </div>
@@ -253,7 +345,7 @@ export default function NuevaCotizacionPage() {
             disabled={saving}
             className="inline-flex items-center rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-zinc-950 transition-[filter] hover:brightness-110 active:brightness-95 disabled:opacity-50"
           >
-            {saving ? "Guardando..." : "Guardar borrador"}
+            {saving ? "Guardando..." : "Guardar cambios"}
           </button>
           <button
             type="button"
