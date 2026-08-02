@@ -35,6 +35,84 @@ function SkeletonRow() {
   );
 }
 
+function SkeletonCard() {
+  return (
+    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-zinc-200 dark:bg-zinc-800 animate-pulse shrink-0" />
+        <div className="space-y-1.5 flex-1">
+          <div className="h-3.5 w-32 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
+          <div className="h-3 w-40 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ search }: { search: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
+        <UserRound className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
+      </div>
+      <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+        {search ? "Sin resultados para tu búsqueda" : "No hay usuarios todavía"}
+      </p>
+      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
+        {search ? "Probá con otro término" : "Creá el primer usuario para empezar"}
+      </p>
+    </div>
+  );
+}
+
+function UserCard({ user, onDelete }: { user: UserMe; onDelete: (id: string) => void }) {
+  return (
+    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+          {user.role === "admin" ? (
+            <Shield className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+          ) : (
+            <UserRound className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-zinc-900 dark:text-white truncate">
+            {user.nombre} {user.apellido}
+          </p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 truncate">{user.email}</p>
+        </div>
+        <button
+          title="Eliminar"
+          onClick={() => onDelete(user.id)}
+          className="p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-150 cursor-pointer shrink-0"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="mt-3.5 pt-3.5 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+          {ROLE_LABELS[user.role] ?? user.role}
+        </span>
+        {!user.is_active ? (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700">
+            Inactivo
+          </span>
+        ) : user.must_change_password ? (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-500/20">
+            Invitación pendiente
+          </span>
+        ) : (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-500/20">
+            Activo
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function UsuariosPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserMe[]>([]);
@@ -114,9 +192,9 @@ export default function UsuariosPage() {
 
       {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
-      {/* Table */}
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
-        <table className="w-full text-sm">
+      {/* Table (desktop) */}
+      <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-x-auto shadow-sm">
+        <table className="w-full text-sm min-w-[560px]">
           <thead>
             <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40">
               <th className="text-left px-6 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
@@ -141,17 +219,7 @@ export default function UsuariosPage() {
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={4}>
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
-                      <UserRound className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
-                    </div>
-                    <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                      {search ? "Sin resultados para tu búsqueda" : "No hay usuarios todavía"}
-                    </p>
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
-                      {search ? "Probá con otro término" : "Creá el primer usuario para empezar"}
-                    </p>
-                  </div>
+                  <EmptyState search={search} />
                 </td>
               </tr>
             ) : (
@@ -215,6 +283,21 @@ export default function UsuariosPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Cards (mobile) */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : filtered.length === 0 ? (
+          <EmptyState search={search} />
+        ) : (
+          filtered.map((user) => <UserCard key={user.id} user={user} onDelete={handleDelete} />)
+        )}
       </div>
     </div>
   );

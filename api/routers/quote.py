@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.database import get_db
-from core.pdf import generate_quote_pdf
+from core.pdf import generate_quote_jpg, generate_quote_pdf
 from core.roles import Permission
 from dependencies.auth import has_role
 from models.user import User
@@ -106,5 +106,22 @@ async def export_pdf(
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'attachment; filename="cotizacion-{quote.id}.pdf"'
+        },
+    )
+
+
+@router.get("/{quote_id}/export/jpg")
+async def export_jpg(
+    quote_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_role(Permission.QUOTE_VIEW_OWN)),
+):
+    quote = await QuoteService(db).get_by_id(quote_id, current_user)
+    jpg_bytes = generate_quote_jpg(quote)
+    return StreamingResponse(
+        io.BytesIO(jpg_bytes),
+        media_type="image/jpeg",
+        headers={
+            "Content-Disposition": f'attachment; filename="cotizacion-{quote.id}.jpg"'
         },
     )

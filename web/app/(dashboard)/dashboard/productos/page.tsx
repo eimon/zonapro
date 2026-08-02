@@ -39,6 +39,117 @@ function SkeletonRow() {
   );
 }
 
+function SkeletonCard() {
+  return (
+    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-zinc-200 dark:bg-zinc-800 animate-pulse shrink-0" />
+        <div className="space-y-1.5 flex-1">
+          <div className="h-3.5 w-32 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
+          <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ search }: { search: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
+        <Package className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
+      </div>
+      <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+        {search ? "Sin resultados para tu búsqueda" : "No hay productos todavía"}
+      </p>
+      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
+        {search ? "Probá con otro término" : "Creá el primer producto para empezar"}
+      </p>
+    </div>
+  );
+}
+
+function ProductCard({ product }: { product: Product }) {
+  const stock = totalStock(product);
+  const price = lowestPrice(product);
+  return (
+    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="relative w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 overflow-hidden">
+          {product.image_url ? (
+            <Image src={product.image_url} alt={product.name} fill sizes="40px" className="object-cover" />
+          ) : (
+            <Package className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-zinc-900 dark:text-white truncate">{product.name}</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-mono truncate">{product.slug}</p>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            title="Editar"
+            className="p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-brand-green hover:bg-brand-green/10 transition-colors duration-150 cursor-pointer"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+          <button
+            title="Eliminar"
+            className="p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-150 cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3.5 pt-3.5 border-t border-zinc-100 dark:border-zinc-800 grid grid-cols-2 gap-y-2.5 gap-x-3 text-xs">
+        <div>
+          <p className="text-zinc-400 dark:text-zinc-500 mb-0.5">Variantes</p>
+          <p className="font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">{product.variants.length}</p>
+        </div>
+        <div>
+          <p className="text-zinc-400 dark:text-zinc-500 mb-0.5">Stock</p>
+          {product.made_to_order ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-500/20">
+              A pedido
+            </span>
+          ) : stock === 0 ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200/80 dark:border-red-500/20">
+              Sin stock
+            </span>
+          ) : (
+            <p className="font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">{stock} u.</p>
+          )}
+        </div>
+        <div>
+          <p className="text-zinc-400 dark:text-zinc-500 mb-0.5">Precio desde</p>
+          <p className="font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">
+            {product.made_to_order ? (
+              <span className="text-zinc-400 dark:text-zinc-600 font-normal">—</span>
+            ) : price !== null ? (
+              `$${price.toLocaleString("es-AR")}`
+            ) : (
+              <span className="text-zinc-400 dark:text-zinc-500 font-normal">Sin precio</span>
+            )}
+          </p>
+        </div>
+        <div>
+          <p className="text-zinc-400 dark:text-zinc-500 mb-0.5">Estado</p>
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium border ${
+              product.is_active
+                ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200/80 dark:border-emerald-500/20"
+                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border-zinc-200 dark:border-zinc-700"
+            }`}
+          >
+            {product.is_active ? "Activo" : "Inactivo"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProductosPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,9 +204,9 @@ export default function ProductosPage() {
         />
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
-        <table className="w-full text-sm">
+      {/* Table (desktop) */}
+      <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-x-auto shadow-sm">
+        <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40">
               <th className="text-left px-6 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
@@ -126,21 +237,7 @@ export default function ProductosPage() {
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={6}>
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
-                      <Package className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
-                    </div>
-                    <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                      {search
-                        ? "Sin resultados para tu búsqueda"
-                        : "No hay productos todavía"}
-                    </p>
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
-                      {search
-                        ? "Probá con otro término"
-                        : "Creá el primer producto para empezar"}
-                    </p>
-                  </div>
+                  <EmptyState search={search} />
                 </td>
               </tr>
             ) : (
@@ -237,6 +334,21 @@ export default function ProductosPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Cards (mobile) */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : filtered.length === 0 ? (
+          <EmptyState search={search} />
+        ) : (
+          filtered.map((product) => <ProductCard key={product.id} product={product} />)
+        )}
       </div>
     </div>
   );

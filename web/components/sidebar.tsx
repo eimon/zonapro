@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -17,6 +17,7 @@ import {
   Store,
   User,
   Users,
+  X,
 } from "lucide-react";
 import { LogoMark } from "@/components/logo";
 import { LogoutConfirmDialog } from "@/components/logout-confirm-dialog";
@@ -48,7 +49,13 @@ const BOTTOM_ITEMS = [
   { href: "/dashboard/configuracion", icon: Settings, label: "Configuración" },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  mobileOpen,
+  onCloseMobile,
+}: {
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
+}) {
   const pathname = usePathname();
   const collapsed = useSyncExternalStore(
     subscribeSidebarCollapsed,
@@ -64,101 +71,134 @@ export function Sidebar() {
   const toggle = () => setSidebarCollapsed(!collapsed);
   const { confirmOpen, requestLogout, cancelLogout, confirmLogout } = useLogout();
 
+  // Labels are always shown on mobile (the drawer is always full-width there);
+  // `collapsed` only hides them at the md breakpoint and up.
+  const labelClass = collapsed ? "md:hidden" : "";
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    function onEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") onCloseMobile();
+    }
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [mobileOpen, onCloseMobile]);
+
   return (
-    <aside
-      className={`relative flex flex-col h-screen bg-brand-blue text-white shrink-0 transition-all duration-200 ease-in-out ${
-        collapsed ? "w-16" : "w-64"
-      }`}
-    >
-      {/* Header */}
-      <div
-        className={`flex items-center h-16 border-b border-white/10 ${
-          collapsed ? "justify-center px-2" : "px-3 gap-2"
-        }`}
+    <>
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={onCloseMobile}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col h-screen w-64 bg-zinc-900 text-white shrink-0 transition-all duration-200 ease-in-out md:static md:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        } ${collapsed ? "md:w-16" : "md:w-64"}`}
       >
-        {!collapsed && (
-          <>
+        {/* Header */}
+        <div
+          className={`flex items-center h-16 border-b border-white/10 px-3 gap-2 ${
+            collapsed ? "md:justify-center md:px-2" : ""
+          }`}
+        >
+          <div className={`flex items-center gap-2 flex-1 min-w-0 ${labelClass}`}>
             <LogoMark className="w-8 h-8 shrink-0" />
-            <span className="font-semibold text-sm tracking-tight whitespace-nowrap flex-1">
+            <span className="font-semibold text-sm tracking-tight whitespace-nowrap">
               ZonaPro
             </span>
-          </>
-        )}
-        <button
-          onClick={toggle}
-          className={`p-1.5 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer shrink-0 ${
-            collapsed ? "" : "ml-auto"
-          }`}
-          aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
-        >
-          {collapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <ChevronLeft className="w-4 h-4" />
-          )}
-        </button>
-      </div>
+          </div>
+          {/* Desktop collapse toggle */}
+          <button
+            onClick={toggle}
+            className={`hidden md:flex p-1.5 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer shrink-0 ${
+              collapsed ? "" : "ml-auto"
+            }`}
+            aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
+          >
+            {collapsed ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
+              <ChevronLeft className="w-4 h-4" />
+            )}
+          </button>
+          {/* Mobile close button */}
+          <button
+            onClick={onCloseMobile}
+            className="md:hidden p-1.5 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer shrink-0 ml-auto"
+            aria-label="Cerrar menú"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-      {/* Main nav */}
-      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
-        {(isAdmin ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS).map(({ href, icon: Icon, label }) => {
-          const isActive =
-            href === "/dashboard"
-              ? pathname === href
-              : pathname === href || pathname.startsWith(href + "/");
-          return (
+        {/* Main nav */}
+        <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
+          {(isAdmin ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS).map(({ href, icon: Icon, label }) => {
+            const isActive =
+              href === "/dashboard"
+                ? pathname === href
+                : pathname === href || pathname.startsWith(href + "/");
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={onCloseMobile}
+                title={collapsed ? label : undefined}
+                className={`flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? "bg-brand-green text-zinc-950"
+                    : "text-white/60 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                <Icon className="w-5 h-5 shrink-0" />
+                <span className={labelClass}>{label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Bottom nav */}
+        <div className="py-3 px-2 border-t border-white/10 space-y-0.5">
+          <div className={collapsed ? "flex md:justify-center" : ""}>
+            <ThemeToggle variant="invert" />
+          </div>
+          {BOTTOM_ITEMS.map(({ href, icon: Icon, label }) => (
             <Link
               key={href}
               href={href}
+              onClick={onCloseMobile}
               title={collapsed ? label : undefined}
-              className={`flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 cursor-pointer whitespace-nowrap ${
-                isActive
-                  ? "bg-brand-green text-zinc-950"
-                  : "text-white/60 hover:text-white hover:bg-white/10"
-              }`}
+              className="flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer whitespace-nowrap"
             >
               <Icon className="w-5 h-5 shrink-0" />
-              {!collapsed && <span>{label}</span>}
+              <span className={labelClass}>{label}</span>
             </Link>
-          );
-        })}
-      </nav>
-
-      {/* Bottom nav */}
-      <div className="py-3 px-2 border-t border-white/10 space-y-0.5">
-        <div className={collapsed ? "flex justify-center" : ""}>
-          <ThemeToggle variant="invert" />
-        </div>
-        {BOTTOM_ITEMS.map(({ href, icon: Icon, label }) => (
+          ))}
           <Link
-            key={href}
-            href={href}
-            title={collapsed ? label : undefined}
+            href="/"
+            onClick={onCloseMobile}
+            title={collapsed ? "Ir a la tienda" : undefined}
             className="flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer whitespace-nowrap"
           >
-            <Icon className="w-5 h-5 shrink-0" />
-            {!collapsed && <span>{label}</span>}
+            <Store className="w-5 h-5 shrink-0" />
+            <span className={labelClass}>Ir a la tienda</span>
           </Link>
-        ))}
-        <Link
-          href="/"
-          title={collapsed ? "Ir a la tienda" : undefined}
-          className="flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer whitespace-nowrap"
-        >
-          <Store className="w-5 h-5 shrink-0" />
-          {!collapsed && <span>Ir a la tienda</span>}
-        </Link>
-        <button
-          onClick={requestLogout}
-          title={collapsed ? "Cerrar sesión" : undefined}
-          className="flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer whitespace-nowrap w-full"
-        >
-          <LogOut className="w-5 h-5 shrink-0" />
-          {!collapsed && <span>Cerrar sesión</span>}
-        </button>
-      </div>
+          <button
+            onClick={requestLogout}
+            title={collapsed ? "Cerrar sesión" : undefined}
+            className="flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-150 cursor-pointer whitespace-nowrap w-full"
+          >
+            <LogOut className="w-5 h-5 shrink-0" />
+            <span className={labelClass}>Cerrar sesión</span>
+          </button>
+        </div>
+      </aside>
 
       <LogoutConfirmDialog open={confirmOpen} onCancel={cancelLogout} onConfirm={confirmLogout} />
-    </aside>
+    </>
   );
 }

@@ -1,8 +1,11 @@
+import io
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
+import fitz
 from jinja2 import Environment, FileSystemLoader
+from PIL import Image
 from weasyprint import HTML
 
 from core.branding import (
@@ -56,3 +59,33 @@ def generate_quote_pdf(quote: Quote) -> bytes:
     )
 
     return HTML(string=html_content).write_pdf()
+
+
+def generate_quote_jpg(quote: Quote, dpi: int = 150) -> bytes:
+    """Render the quote PDF to a single JPEG (pages stacked vertically if it spans more than one)."""
+    pdf_bytes = generate_quote_pdf(quote)
+
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    zoom = dpi / 72
+    matrix = fitz.Matrix(zoom, zoom)
+    try:
+        pages = [doc.load_page(i).get_pixmap(matrix=matrix) for i in range(doc.page_count)]
+    finally:
+        doc.close()
+
+    images = [Image.frombytes("RGB", (pix.width, pix.height), pix.samples) for pix in pages]
+
+    if len(images) == 1:
+        combined = images[0]
+    else:
+        width = max(img.width for img in images)
+        total_height = sum(img.height for img in images)
+        combined = Image.new("RGB", (width, total_height), "white")
+        y = 0
+        for img in images:
+            combined.paste(img, (0, y))
+            y += img.height
+
+    buffer = io.BytesIO()
+    combined.save(buffer, format="JPEG", quality=92)
+    return buffer.getvalue()

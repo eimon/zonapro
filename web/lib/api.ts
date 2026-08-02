@@ -304,6 +304,14 @@ export const api = {
       const blob = await res.blob();
       return URL.createObjectURL(blob);
     },
+    exportJpg: async (id: string, token: string): Promise<string> => {
+      const res = await fetch(`${API_URL}/api/v1/quotes/${id}/export/jpg`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Error al generar la imagen");
+      const blob = await res.blob();
+      return URL.createObjectURL(blob);
+    },
   },
 
   settings: {
