@@ -13,6 +13,7 @@ class Product(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
     slug = Column(String(220), nullable=False, unique=True, index=True)
     description = Column(Text, nullable=True)
     base_price = Column(Numeric(12, 2), nullable=False, default=0)
+    image_url = Column(String(500), nullable=True)
     made_to_order = Column(Boolean, nullable=False, default=False)
     category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True, index=True)
     is_active = Column(Boolean, nullable=False, default=True)

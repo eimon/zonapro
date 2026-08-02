@@ -26,6 +26,7 @@ const baseSchema = z.object({
     .min(1, "Slug requerido")
     .regex(/^[a-z0-9-]+$/, "Solo letras minúsculas, números y guiones"),
   description: z.string().optional(),
+  image_url: z.string().url("URL inválida").optional().or(z.literal("")),
   category_id: z.string().optional(),
   made_to_order: z.boolean(),
   // simple mode
@@ -149,6 +150,7 @@ export default function NuevoProductoPage() {
           name: data.name,
           slug: data.slug,
           description: data.description || null,
+          image_url: data.image_url || null,
           category_id: data.category_id || null,
           made_to_order: data.made_to_order,
           base_price: mode === "simple" ? simplePrice : 0,
@@ -245,6 +247,15 @@ export default function NuevoProductoPage() {
               placeholder="Descripción del producto (opcional)"
               className={`${inputClass} resize-none`}
               {...register("description")}
+            />
+          </InputField>
+
+          <InputField label="URL de imagen" error={errors.image_url?.message}>
+            <input
+              type="text"
+              placeholder="https://..."
+              className={inputClass}
+              {...register("image_url")}
             />
           </InputField>
 

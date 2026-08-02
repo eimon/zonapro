@@ -36,6 +36,7 @@ class ProductCreate(BaseModel):
     slug: str
     description: str | None = None
     base_price: Decimal = Decimal("0")
+    image_url: str | None = None
     made_to_order: bool = False
     category_id: uuid.UUID | None = None
     is_active: bool = True
@@ -47,6 +48,7 @@ class ProductUpdate(BaseModel):
     slug: str | None = None
     description: str | None = None
     base_price: Decimal | None = None
+    image_url: str | None = None
     made_to_order: bool | None = None
     category_id: uuid.UUID | None = None
     is_active: bool | None = None
@@ -58,6 +60,7 @@ class ProductResponse(BaseModel):
     slug: str
     description: str | None
     base_price: Decimal
+    image_url: str | None
     made_to_order: bool
     category_id: uuid.UUID | None
     is_active: bool

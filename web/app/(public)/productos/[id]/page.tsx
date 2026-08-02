@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams, notFound } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { api, type Product, type ProductVariant } from "@/lib/api";
-import { ArrowLeft, MessageSquare, Tag, CheckCircle2, Clock } from "lucide-react";
+import { ArrowLeft, MessageSquare, Package, Tag, CheckCircle2, Clock } from "lucide-react";
 
 function lowestPrice(product: Product): number | null {
   const prices = product.variants
@@ -85,6 +86,24 @@ export default function ProductoDetailPage() {
           <ArrowLeft className="w-4 h-4" />
           Volver al catálogo
         </Link>
+
+        {/* Image */}
+        <div className="relative aspect-video rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+          {product.image_url ? (
+            <Image
+              src={product.image_url}
+              alt={product.name}
+              fill
+              sizes="(min-width: 1024px) 896px, 100vw"
+              priority
+              className="object-cover"
+            />
+          ) : (
+            <div className="flex items-center justify-center w-full h-full">
+              <Package className="w-14 h-14 text-zinc-300 dark:text-zinc-700" />
+            </div>
+          )}
+        </div>
 
         {/* Header */}
         <div className="space-y-4">

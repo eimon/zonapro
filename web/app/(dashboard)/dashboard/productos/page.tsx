@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, type Product } from "@/lib/api";
+import Image from "next/image";
 import Link from "next/link";
 import { Package, Pencil, Plus, Search, Trash2 } from "lucide-react";
 
@@ -153,8 +154,18 @@ export default function ProductosPage() {
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-                          <Package className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                        <div className="relative w-9 h-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 overflow-hidden">
+                          {product.image_url ? (
+                            <Image
+                              src={product.image_url}
+                              alt={product.name}
+                              fill
+                              sizes="36px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <Package className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                          )}
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium text-zinc-900 dark:text-white truncate">

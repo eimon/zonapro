@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { MessageSquare, Tag } from "lucide-react";
+import { MessageSquare, Package, Tag } from "lucide-react";
 import type { Category, Product } from "@/lib/api";
 
 function lowestPrice(product: Product): number | null {
@@ -25,6 +26,23 @@ function ProductCard({
     <div className="group flex flex-col bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 rounded-2xl overflow-hidden transition-all duration-200">
       {/* Color band */}
       <div className="h-1 bg-brand-green opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+
+      {/* Image */}
+      <div className="relative aspect-[4/3] bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+        {product.image_url ? (
+          <Image
+            src={product.image_url}
+            alt={product.name}
+            fill
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex items-center justify-center w-full h-full">
+            <Package className="w-10 h-10 text-zinc-300 dark:text-zinc-700" />
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-col flex-1 p-6">
         {/* Badges */}

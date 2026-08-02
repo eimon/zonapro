@@ -82,6 +82,7 @@ export type Product = {
   slug: string;
   description: string | null;
   base_price: string;
+  image_url: string | null;
   made_to_order: boolean;
   category_id: string | null;
   is_active: boolean;

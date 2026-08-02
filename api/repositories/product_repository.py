@@ -51,6 +51,7 @@ class ProductRepository(BaseRepository[Product]):
             slug=data.slug,
             description=data.description,
             base_price=data.base_price,
+            image_url=data.image_url,
             made_to_order=data.made_to_order,
             category_id=data.category_id,
             is_active=data.is_active,
