@@ -11,6 +11,15 @@ CMD ["npm", "run", "dev"]
 
 # ── Builder ───────────────────────────────────────────────────────────────────
 FROM base AS builder
+# Estas variables NEXT_PUBLIC_* deben estar presentes en build: Next.js las
+# inyecta en el bundle del cliente y las páginas públicas hacen fetch a la API
+# durante el prerender. docker-compose.prod.yml las pasa como build args.
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_CLIENT_ID
+ARG NEXT_PUBLIC_CLIENT_SECRET
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_CLIENT_ID=$NEXT_PUBLIC_CLIENT_ID
+ENV NEXT_PUBLIC_CLIENT_SECRET=$NEXT_PUBLIC_CLIENT_SECRET
 RUN npm install
 COPY . .
 RUN npm run build

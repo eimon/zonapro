@@ -4,6 +4,9 @@
 .env.*.local
 !.env.example
 
+# Server-specific deploy config (no es propio del proyecto, sino del servidor)
+docker-compose.prod.yml
+
 # OS
 .DS_Store
 Thumbs.db
