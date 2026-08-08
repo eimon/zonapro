@@ -11,10 +11,14 @@ export type QuoteItemDraft = {
   product_sku: string;
   quantity: number;
   unit_price: string;
+  iva_rate: string; // the product's IVA rate, snapshotted when the item is added
 };
 
 const inputClass =
   "w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-green/25 focus:border-brand-green transition-all duration-150";
+
+// Installation cost is always taxed at the standard rate when the quote contempla IVA.
+const INSTALLATION_IVA_RATE = 21;
 
 function money(value: number) {
   return `$${value.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -29,6 +33,7 @@ export function QuoteItemsEditor({
   installationCostValue,
   onInstallationCostTypeChange,
   onInstallationCostValueChange,
+  contemplaIva,
 }: {
   products: Product[];
   items: QuoteItemDraft[];
@@ -38,6 +43,7 @@ export function QuoteItemsEditor({
   installationCostValue: string;
   onInstallationCostTypeChange: (value: InstallationCostType | "") => void;
   onInstallationCostValueChange: (value: string) => void;
+  contemplaIva: boolean;
 }) {
   const [variantId, setVariantId] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -48,6 +54,7 @@ export function QuoteItemsEditor({
       label: `${product.name} — ${variant.name}`,
       sku: variant.sku,
       price: variant.price,
+      ivaRate: product.iva_rate,
     }))
   );
 
@@ -60,6 +67,7 @@ export function QuoteItemsEditor({
       product_sku: option.sku,
       quantity,
       unit_price: option.price ?? "0",
+      iva_rate: option.ivaRate,
     });
     setVariantId("");
     setQuantity(1);
@@ -75,7 +83,17 @@ export function QuoteItemsEditor({
       : installationCostType === "percentage"
       ? (productsSubtotal * parseFloat(installationCostValue || "0")) / 100
       : 0;
-  const total = productsSubtotal + installationAmount;
+  const itemsIvaAmount = contemplaIva
+    ? items.reduce(
+        (sum, item) =>
+          sum + (parseFloat(item.unit_price) * item.quantity * parseFloat(item.iva_rate || "0")) / 100,
+        0
+      )
+    : 0;
+  const installationIvaAmount =
+    contemplaIva && installationCostType ? (installationAmount * INSTALLATION_IVA_RATE) / 100 : 0;
+  const ivaAmount = itemsIvaAmount + installationIvaAmount;
+  const total = productsSubtotal + installationAmount + ivaAmount;
 
   return (
     <div className="space-y-5">
@@ -210,9 +228,15 @@ export function QuoteItemsEditor({
       {/* Totals */}
       <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5">
         <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
-          <span>Subtotal productos</span>
+          <span>Precio sin impuestos</span>
           <span className="tabular-nums">{money(productsSubtotal)}</span>
         </div>
+        {contemplaIva && (
+          <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
+            <span>IVA</span>
+            <span className="tabular-nums">{money(ivaAmount)}</span>
+          </div>
+        )}
         {installationCostType && (
           <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
             <span>Instalación{installationCostType === "percentage" ? ` (${installationCostValue || 0}%)` : ""}</span>
@@ -220,7 +244,12 @@ export function QuoteItemsEditor({
           </div>
         )}
         <div className="flex items-center justify-between text-base font-semibold text-zinc-900 dark:text-white pt-1.5">
-          <span>Total</span>
+          <span>
+            Total
+            {!contemplaIva && (
+              <span className="ml-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">(sin IVA)</span>
+            )}
+          </span>
           <span className="tabular-nums">{money(total)}</span>
         </div>
       </div>

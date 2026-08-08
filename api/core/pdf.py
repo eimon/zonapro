@@ -17,7 +17,12 @@ from core.branding import (
     COMPANY_TAGLINE,
     LOGO_BASE64,
 )
-from core.pricing import installation_cost_amount, items_subtotal, quote_total
+from core.pricing import (
+    installation_cost_amount,
+    item_iva_amount,
+    items_subtotal,
+    quote_total,
+)
 from models.enums import InstallationCostType
 from models.quote import Quote
 
@@ -41,6 +46,17 @@ def generate_quote_pdf(quote: Quote) -> bytes:
     total = quote_total(quote)
     validity_date = quote.created_at + timedelta(days=quote.validity_days)
 
+    for item in quote.items:
+        if quote.contempla_iva:
+            item.display_unit_price = (
+                item.unit_price * (1 + item.iva_rate / Decimal("100"))
+            ).quantize(Decimal("0.01"))
+            item.display_iva_amount = item_iva_amount(item)
+            item.display_subtotal = item.subtotal + item.display_iva_amount
+        else:
+            item.display_unit_price = item.unit_price
+            item.display_subtotal = item.subtotal
+
     html_content = template.render(
         quote=quote,
         items=quote.items,
@@ -48,6 +64,8 @@ def generate_quote_pdf(quote: Quote) -> bytes:
         installation_amount=installation_amount,
         installation_is_percentage=quote.installation_cost_type == InstallationCostType.percentage,
         total=total,
+        contempla_iva=quote.contempla_iva,
+        iva_amount=quote.iva_amount,
         validity_date=validity_date,
         company_name=COMPANY_NAME,
         company_tagline=COMPANY_TAGLINE,

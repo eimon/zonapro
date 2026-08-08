@@ -37,6 +37,7 @@ const schema = z.object({
   category_id: z.string().optional(),
   made_to_order: z.boolean(),
   is_active: z.boolean(),
+  iva_rate: z.enum(["0", "10.5", "21"]),
   variants: z.array(variantSchema).min(1, "Agregá al menos una variante"),
 });
 
@@ -106,6 +107,7 @@ export default function EditarProductoPage() {
           category_id: p.category_id ?? "",
           made_to_order: p.made_to_order,
           is_active: p.is_active,
+          iva_rate: p.iva_rate,
           variants: p.variants.map((v) => ({
             id: v.id,
             sku: v.sku,
@@ -138,6 +140,7 @@ export default function EditarProductoPage() {
           category_id: data.category_id || null,
           made_to_order: data.made_to_order,
           is_active: data.is_active,
+          iva_rate: data.iva_rate,
         },
         token
       );
@@ -244,6 +247,14 @@ export default function EditarProductoPage() {
                   {c.name}
                 </option>
               ))}
+            </select>
+          </InputField>
+
+          <InputField label="Alícuota de IVA" required error={errors.iva_rate?.message}>
+            <select className={`${inputClass} sm:w-1/2`} {...register("iva_rate")}>
+              <option value="0">0%</option>
+              <option value="10.5">10,5%</option>
+              <option value="21">21%</option>
             </select>
           </InputField>
 

@@ -1,13 +1,16 @@
 import uuid
 from decimal import Decimal
-from pydantic import BaseModel
+from typing import Literal
+from pydantic import BaseModel, Field
+from models.enums import IvaRate
 
 
 class ProductVariantCreate(BaseModel):
     sku: str
     name: str
     attributes: dict | None = None
-    price: Decimal | None = None
+    price: Decimal
+    price_input_mode: Literal["net", "final"] = "net"
     stock_qty: int = 0
 
 
@@ -16,6 +19,7 @@ class ProductVariantUpdate(BaseModel):
     name: str | None = None
     attributes: dict | None = None
     price: Decimal | None = None
+    price_input_mode: Literal["net", "final"] = "net"
     stock_qty: int | None = None
 
 
@@ -25,8 +29,9 @@ class ProductVariantResponse(BaseModel):
     sku: str
     name: str
     attributes: dict | None
-    price: Decimal | None
+    price: Decimal
     stock_qty: int
+    final_price: Decimal
 
     model_config = {"from_attributes": True}
 
@@ -35,19 +40,19 @@ class ProductCreate(BaseModel):
     name: str
     slug: str
     description: str | None = None
-    base_price: Decimal = Decimal("0")
+    iva_rate: IvaRate
     image_url: str | None = None
     made_to_order: bool = False
     category_id: uuid.UUID | None = None
     is_active: bool = True
-    variants: list[ProductVariantCreate] = []
+    variants: list[ProductVariantCreate] = Field(min_length=1)
 
 
 class ProductUpdate(BaseModel):
     name: str | None = None
     slug: str | None = None
     description: str | None = None
-    base_price: Decimal | None = None
+    iva_rate: IvaRate | None = None
     image_url: str | None = None
     made_to_order: bool | None = None
     category_id: uuid.UUID | None = None
@@ -59,7 +64,7 @@ class ProductResponse(BaseModel):
     name: str
     slug: str
     description: str | None
-    base_price: Decimal
+    iva_rate: IvaRate
     image_url: str | None
     made_to_order: bool
     category_id: uuid.UUID | None

@@ -13,8 +13,8 @@ function totalStock(p: Product) {
 
 function lowestPrice(p: Product): number | null {
   const prices = p.variants
-    .filter((v) => v.price !== null)
-    .map((v) => parseFloat(v.price!));
+    .map((v) => parseFloat(v.price))
+    .filter((price) => !Number.isNaN(price));
   return prices.length ? Math.min(...prices) : null;
 }
 

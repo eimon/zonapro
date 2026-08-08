@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api, type InstallationCostType, type Product } from "@/lib/api";
@@ -19,6 +19,7 @@ const schema = z.object({
   cost_notes: z.string().optional(),
   margin_notes: z.string().optional(),
   internal_comments: z.string().optional(),
+  contempla_iva: z.boolean(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -39,11 +40,14 @@ export default function NuevaCotizacionPage() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { validity_days: 30 },
+    defaultValues: { validity_days: 30, contempla_iva: true },
   });
+
+  const contemplaIva = useWatch({ control, name: "contempla_iva" });
 
   async function onSubmit(data: FormData) {
     const token = getToken();
@@ -171,6 +175,20 @@ export default function NuevaCotizacionPage() {
           )}
         </div>
 
+        {/* IVA */}
+        <div>
+          <label className="flex items-center gap-3 cursor-pointer group w-fit">
+            <input
+              type="checkbox"
+              className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 accent-brand-green"
+              {...register("contempla_iva")}
+            />
+            <span className="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
+              Incluir IVA en esta cotización
+            </span>
+          </label>
+        </div>
+
         {/* Notes (visible to client) */}
         <div>
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -198,6 +216,7 @@ export default function NuevaCotizacionPage() {
             installationCostValue={installationCostValue}
             onInstallationCostTypeChange={setInstallationCostType}
             onInstallationCostValueChange={setInstallationCostValue}
+            contemplaIva={contemplaIva}
           />
         </div>
 

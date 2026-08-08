@@ -1,7 +1,7 @@
 import uuid
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.pricing import quote_total, installation_cost_amount
+from core.pricing import quote_total, installation_cost_amount, items_iva_total, installation_cost_iva_amount
 from repositories.app_setting_repository import AppSettingRepository
 from repositories.quote_repository import QuoteRepository
 from repositories.product_repository import ProductVariantRepository
@@ -25,6 +25,11 @@ def _add_total(quote: Quote) -> Quote:
     """Attach computed, non-persisted attributes the response schema needs."""
     quote.total = quote_total(quote)
     quote.installation_cost_amount = installation_cost_amount(quote)
+    quote.iva_amount = (
+        items_iva_total(quote) + installation_cost_iva_amount(quote)
+        if quote.contempla_iva
+        else Decimal("0")
+    )
     quote.updated_by_name = (
         f"{quote.updated_by.nombre} {quote.updated_by.apellido}" if quote.updated_by else None
     )
@@ -71,6 +76,7 @@ class QuoteService:
             consultation_id=data.consultation_id,
             installation_cost_type=data.installation_cost_type,
             installation_cost_value=data.installation_cost_value,
+            contempla_iva=data.contempla_iva,
             created_by_id=created_by_id,
             cost_notes=data.cost_notes,
             margin_notes=data.margin_notes,
@@ -90,15 +96,22 @@ class QuoteService:
         product_name_snapshot = None
         product_sku_snapshot = None
         hourly_rate_snapshot = None
+        iva_rate = Decimal("0")
 
         if item_data.kind == QuoteItemKind.product and item_data.product_variant_id:
-            variant = await self.variant_repo.get_by_id(item_data.product_variant_id)
+            variant = await self.variant_repo.get_with_product(item_data.product_variant_id)
             if variant:
-                product_name_snapshot = variant.name
+                product_name_snapshot = (
+                    f"{variant.product.name} — {variant.name}" if variant.product else variant.name
+                )
                 product_sku_snapshot = variant.sku
+                if variant.product:
+                    iva_rate = Decimal(variant.product.iva_rate.value)
 
         if item_data.kind == QuoteItemKind.service:
             hourly_rate_snapshot = hourly_rate
+            # Client-supplied only for services; never trusted for products.
+            iva_rate = item_data.iva_rate if item_data.iva_rate is not None else Decimal("21")
 
         subtotal = item_data.unit_price * item_data.quantity
 
@@ -115,6 +128,7 @@ class QuoteService:
             quantity=item_data.quantity,
             unit_price=item_data.unit_price,
             subtotal=subtotal,
+            iva_rate=iva_rate,
         )
 
     async def get_by_id(self, id: uuid.UUID, user: User) -> Quote:

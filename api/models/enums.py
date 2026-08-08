@@ -37,6 +37,12 @@ class InstallationCostType(str, Enum):
     percentage = "percentage"
 
 
+class IvaRate(str, Enum):
+    iva_0 = "0"
+    iva_10_5 = "10.5"
+    iva_21 = "21"
+
+
 class OrderStatus(str, Enum):
     pendiente = "pendiente"
     pagada = "pagada"

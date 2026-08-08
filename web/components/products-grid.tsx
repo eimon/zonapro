@@ -6,10 +6,11 @@ import Link from "next/link";
 import { MessageSquare, Package, Tag } from "lucide-react";
 import type { Category, Product } from "@/lib/api";
 
+// Customer-facing price: final price (net + IVA), what the customer actually pays.
 function lowestPrice(product: Product): number | null {
   const prices = product.variants
-    .filter((v) => v.price !== null)
-    .map((v) => parseFloat(v.price!));
+    .map((v) => parseFloat(v.final_price))
+    .filter((p) => !Number.isNaN(p));
   return prices.length ? Math.min(...prices) : null;
 }
 

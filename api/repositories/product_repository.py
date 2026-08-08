@@ -1,4 +1,5 @@
 import uuid
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -50,7 +51,7 @@ class ProductRepository(BaseRepository[Product]):
             name=data.name,
             slug=data.slug,
             description=data.description,
-            base_price=data.base_price,
+            iva_rate=data.iva_rate,
             image_url=data.image_url,
             made_to_order=data.made_to_order,
             category_id=data.category_id,
@@ -73,13 +74,13 @@ class ProductVariantRepository(BaseRepository[ProductVariant]):
     def __init__(self, db: AsyncSession):
         super().__init__(ProductVariant, db)
 
-    async def create(self, product_id: uuid.UUID, data) -> ProductVariant:
+    async def create(self, product_id: uuid.UUID, data, price) -> ProductVariant:
         obj = ProductVariant(
             product_id=product_id,
             sku=data.sku,
             name=data.name,
             attributes=data.attributes,
-            price=data.price,
+            price=price,
             stock_qty=data.stock_qty,
         )
         self.db.add(obj)
@@ -93,3 +94,19 @@ class ProductVariantRepository(BaseRepository[ProductVariant]):
         await self.db.flush()
         await self.db.refresh(obj)
         return obj
+
+    async def count_active_for_product(self, product_id: uuid.UUID) -> int:
+        result = await self.db.execute(
+            select(func.count())
+            .select_from(ProductVariant)
+            .where(ProductVariant.product_id == product_id, ProductVariant.deleted_at.is_(None))
+        )
+        return result.scalar_one()
+
+    async def get_with_product(self, id: uuid.UUID) -> ProductVariant | None:
+        result = await self.db.execute(
+            select(ProductVariant)
+            .options(selectinload(ProductVariant.product))
+            .where(ProductVariant.id == id)
+        )
+        return result.scalars().first()

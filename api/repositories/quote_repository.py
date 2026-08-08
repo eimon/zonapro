@@ -54,6 +54,7 @@ class QuoteRepository(BaseRepository[Quote]):
         consultation_id: uuid.UUID | None = None,
         installation_cost_type=None,
         installation_cost_value: Decimal | None = None,
+        contempla_iva: bool = True,
         cost_notes: str | None = None,
         margin_notes: str | None = None,
         internal_comments: str | None = None,
@@ -69,6 +70,7 @@ class QuoteRepository(BaseRepository[Quote]):
             created_by_id=created_by_id,
             installation_cost_type=installation_cost_type,
             installation_cost_value=installation_cost_value,
+            contempla_iva=contempla_iva,
             cost_notes=cost_notes,
             margin_notes=margin_notes,
             internal_comments=internal_comments,
@@ -92,6 +94,7 @@ class QuoteRepository(BaseRepository[Quote]):
         hours: Decimal | None = None,
         hourly_rate_snapshot: Decimal | None = None,
         quantity: int = 1,
+        iva_rate: Decimal = Decimal("0"),
     ) -> QuoteItem:
         obj = QuoteItem(
             quote_id=quote_id,
@@ -106,6 +109,7 @@ class QuoteRepository(BaseRepository[Quote]):
             quantity=quantity,
             unit_price=unit_price,
             subtotal=subtotal,
+            iva_rate=iva_rate,
         )
         self.db.add(obj)
         await self.db.flush()

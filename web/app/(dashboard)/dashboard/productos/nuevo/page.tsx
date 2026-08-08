@@ -16,7 +16,7 @@ import { ArrowLeft, Package, Layers, Plus, Trash2 } from "lucide-react";
 const variantSchema = z.object({
   sku: z.string().min(1, "SKU requerido"),
   name: z.string().min(1, "Nombre requerido"),
-  price: z.string().optional(),
+  price: z.string().min(1, "Precio requerido"),
   stock_qty: z.number().int().min(0),
 });
 
@@ -35,6 +35,8 @@ const baseSchema = z.object({
     .optional(),
   category_id: z.string().optional(),
   made_to_order: z.boolean(),
+  iva_rate: z.enum(["0", "10.5", "21"]),
+  price_input_mode: z.enum(["net", "final"]),
   // simple mode
   simple_price: z.string().optional(),
   simple_stock: z.number().int().min(0).optional(),
@@ -55,6 +57,15 @@ function slugify(text: string): string {
     .replace(/[^a-z0-9\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-");
+}
+
+function priceHint(rawPrice: string | undefined, mode: "net" | "final", ivaRate: string): string | null {
+  const value = rawPrice ? parseFloat(rawPrice) : NaN;
+  if (!rawPrice || Number.isNaN(value)) return null;
+  const rate = parseFloat(ivaRate) / 100;
+  const converted = mode === "net" ? value * (1 + rate) : value / (1 + rate);
+  const label = mode === "net" ? "final (con IVA)" : "neto (sin IVA)";
+  return `= $${converted.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${label}`;
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -105,13 +116,22 @@ export default function NuevoProductoPage() {
     defaultValues: {
       made_to_order: false,
       simple_stock: 0,
-      variants: [{ sku: "", name: "", price: "", stock_qty: 0 }],
+      iva_rate: "21",
+      price_input_mode: "net",
+      // Starts in "simple" mode — the variants array is only seeded when the
+      // user switches to "variants" mode (see switchMode). Keeping it empty
+      // here avoids the stale placeholder row still being subject to
+      // variantSchema's required-field validation while in simple mode.
+      variants: [],
     },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: "variants" });
 
   const nameValue = useWatch({ control, name: "name" });
+  const simplePriceValue = useWatch({ control, name: "simple_price" });
+  const ivaRateValue = useWatch({ control, name: "iva_rate" });
+  const priceInputModeValue = useWatch({ control, name: "price_input_mode" });
 
   useEffect(() => {
     if (nameValue) setValue("slug", slugify(nameValue), { shouldValidate: false });
@@ -124,6 +144,14 @@ export default function NuevoProductoPage() {
   const switchMode = (next: Mode) => {
     setMode(next);
     setModeError(null);
+    if (next === "simple") {
+      // Drop the variants array entirely — variantSchema requires sku/name/price
+      // on every row, so a leftover placeholder row would silently fail
+      // validation (and block submission) even though it's not rendered.
+      setValue("variants", []);
+    } else if (next === "variants") {
+      setValue("variants", [{ sku: "", name: "", price: "", stock_qty: 0 }]);
+    }
   };
 
   const onSubmit = async (data: FormData) => {
@@ -131,15 +159,20 @@ export default function NuevoProductoPage() {
     setModeError(null);
 
     // Validate mode-specific fields
-    if (mode === "variants") {
+    if (mode === "simple") {
+      if (!data.simple_price) {
+        setModeError("El precio es requerido.");
+        return;
+      }
+    } else {
       const vars = data.variants ?? [];
       if (vars.length === 0) {
         setModeError("Agregá al menos una variante.");
         return;
       }
       for (const v of vars) {
-        if (!v.sku || !v.name) {
-          setModeError("Completá SKU y nombre en todas las variantes.");
+        if (!v.sku || !v.name || !v.price) {
+          setModeError("Completá SKU, nombre y precio en todas las variantes.");
           return;
         }
       }
@@ -149,9 +182,26 @@ export default function NuevoProductoPage() {
     if (!token) { router.replace("/login"); return; }
 
     try {
-      const simplePrice = data.simple_price ? parseFloat(data.simple_price) : 0;
+      const variants =
+        mode === "simple"
+          ? [
+              {
+                sku: data.slug,
+                name: "Único",
+                price: parseFloat(data.simple_price as string),
+                price_input_mode: data.price_input_mode,
+                stock_qty: data.simple_stock ?? 0,
+              },
+            ]
+          : (data.variants ?? []).map((v) => ({
+              sku: v.sku,
+              name: v.name,
+              price: parseFloat(v.price),
+              price_input_mode: data.price_input_mode,
+              stock_qty: v.stock_qty,
+            }));
 
-      const product = await api.products.create(
+      await api.products.create(
         {
           name: data.name,
           slug: data.slug,
@@ -159,39 +209,11 @@ export default function NuevoProductoPage() {
           image_url: data.image_url || null,
           category_id: data.category_id || null,
           made_to_order: data.made_to_order,
-          base_price: mode === "simple" ? simplePrice : 0,
+          iva_rate: data.iva_rate,
+          variants,
         },
         token
       );
-
-      if (mode === "simple") {
-        // One implicit variant
-        await api.products.variants.create(
-          product.id,
-          {
-            sku: data.slug,
-            name: "Único",
-            price: simplePrice || null,
-            stock_qty: data.simple_stock ?? 0,
-          },
-          token
-        );
-      } else {
-        await Promise.all(
-          (data.variants ?? []).map((v) =>
-            api.products.variants.create(
-              product.id,
-              {
-                sku: v.sku,
-                name: v.name,
-                price: v.price ? parseFloat(v.price) : null,
-                stock_qty: v.stock_qty,
-              },
-              token
-            )
-          )
-        );
-      }
 
       router.push("/dashboard/productos");
     } catch (e) {
@@ -287,6 +309,43 @@ export default function NuevoProductoPage() {
               Producto a pedido (sin stock administrado)
             </span>
           </label>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <InputField label="Alícuota de IVA" required error={errors.iva_rate?.message}>
+              <select className={inputClass} {...register("iva_rate")}>
+                <option value="0">0%</option>
+                <option value="10.5">10,5%</option>
+                <option value="21">21%</option>
+              </select>
+            </InputField>
+
+            <InputField label="Modo de carga del precio" error={errors.price_input_mode?.message}>
+              <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setValue("price_input_mode", "net", { shouldValidate: true })}
+                  className={`flex-1 px-3 py-2 text-sm font-medium transition-colors duration-150 cursor-pointer ${
+                    priceInputModeValue === "net"
+                      ? "bg-brand-green text-zinc-950"
+                      : "bg-zinc-50 dark:bg-zinc-950/60 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                  }`}
+                >
+                  Neto (sin IVA)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setValue("price_input_mode", "final", { shouldValidate: true })}
+                  className={`flex-1 px-3 py-2 text-sm font-medium transition-colors duration-150 cursor-pointer ${
+                    priceInputModeValue === "final"
+                      ? "bg-brand-green text-zinc-950"
+                      : "bg-zinc-50 dark:bg-zinc-950/60 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                  }`}
+                >
+                  Final (con IVA)
+                </button>
+              </div>
+            </InputField>
+          </div>
         </div>
 
         {/* Mode selector + pricing card */}
@@ -346,6 +405,11 @@ export default function NuevoProductoPage() {
                   className={inputClass}
                   {...register("simple_price")}
                 />
+                {priceHint(simplePriceValue, priceInputModeValue, ivaRateValue) && (
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                    {priceHint(simplePriceValue, priceInputModeValue, ivaRateValue)}
+                  </p>
+                )}
               </InputField>
 
               <InputField label="Stock disponible" error={errors.simple_stock?.message}>

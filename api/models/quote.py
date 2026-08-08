@@ -29,6 +29,9 @@ class Quote(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
     installation_cost_type = Column(SAEnum(InstallationCostType), nullable=True)
     installation_cost_value = Column(Numeric(12, 2), nullable=True)
 
+    # Whether IVA is added on top of net amounts when computing the total
+    contempla_iva = Column(Boolean, nullable=False, default=True)
+
     # Internal-only fields — never serialized in client response or PDF
     cost_notes = Column(Text, nullable=True)
     margin_notes = Column(Text, nullable=True)
@@ -100,6 +103,7 @@ class QuoteItem(UUIDMixin, TimestampMixin, Base):
     quantity = Column(Integer, nullable=False, default=1)
     unit_price = Column(Numeric(12, 2), nullable=False)
     subtotal = Column(Numeric(12, 2), nullable=False)
+    iva_rate = Column(Numeric(4, 2), nullable=False, default=0)
 
     # Relationships
     quote = relationship("Quote", back_populates="items")

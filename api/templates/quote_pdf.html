@@ -153,45 +153,59 @@
       margin-top: 2px;
     }
 
-    /* ── Total row ── */
+    /* ── Total row ──
+       display:table (not flex) so the label/amount columns share widths
+       across every row — this is what makes the peso amounts line up on
+       their right edge regardless of label length or digit count. */
     .total-row {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 6px;
+      display: table;
+      border-spacing: 0 6px;
       margin-top: 12px;
+      margin-left: auto;
     }
     .subtotal-line {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 2px 20px;
+      display: table-row;
       font-size: 11px;
       color: #4b5563;
     }
+    .subtotal-line .total-label {
+      padding: 2px 12px 2px 20px;
+    }
     .subtotal-line .total-amount {
+      padding: 2px 20px 2px 12px;
       font-size: 12px;
       font-weight: 600;
     }
     .total-box {
+      display: table-row;
       background: #111827;
       color: #ffffff;
-      border-radius: 6px;
-      padding: 10px 20px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
+    }
+    .total-box .total-label {
+      padding: 10px 12px 10px 20px;
+      border-top-left-radius: 6px;
+      border-bottom-left-radius: 6px;
+    }
+    .total-box .total-amount {
+      padding: 10px 20px 10px 12px;
+      border-top-right-radius: 6px;
+      border-bottom-right-radius: 6px;
     }
     .total-label {
+      display: table-cell;
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: #9ca3af;
+      white-space: nowrap;
     }
     .total-amount {
+      display: table-cell;
       font-size: 18px;
       font-weight: 700;
+      text-align: right;
+      white-space: nowrap;
     }
 
     /* ── Notes ── */
@@ -341,10 +355,13 @@
                 <div class="item-meta">{{ item.hours }} hs.</div>
               {% endif %}
             {% endif %}
+            {% if contempla_iva %}
+              <div class="item-meta">IVA {{ item.iva_rate }}% (${{ item.display_iva_amount | ars }})</div>
+            {% endif %}
           </td>
           <td class="right">{{ item.quantity }}</td>
-          <td class="right">${{ item.unit_price | ars }}</td>
-          <td class="right">${{ item.subtotal | ars }}</td>
+          <td class="right">${{ item.display_unit_price | ars }}</td>
+          <td class="right">${{ item.display_subtotal | ars }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -353,11 +370,18 @@
 
   <!-- Total -->
   <div class="total-row">
-    {% if quote.installation_cost_type %}
+    {% if quote.installation_cost_type or contempla_iva %}
     <div class="subtotal-line">
-      <span class="total-label">Subtotal productos y servicios</span>
+      <span class="total-label">Precio sin impuestos</span>
       <span class="total-amount">${{ subtotal | ars }}</span>
     </div>
+    {% if contempla_iva %}
+    <div class="subtotal-line">
+      <span class="total-label">IVA</span>
+      <span class="total-amount">${{ iva_amount | ars }}</span>
+    </div>
+    {% endif %}
+    {% if quote.installation_cost_type %}
     <div class="subtotal-line">
       <span class="total-label">
         Instalación
@@ -365,6 +389,7 @@
       </span>
       <span class="total-amount">${{ installation_amount | ars }}</span>
     </div>
+    {% endif %}
     {% endif %}
     <div class="total-box">
       <span class="total-label">Total</span>

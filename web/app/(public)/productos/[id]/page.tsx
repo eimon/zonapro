@@ -7,17 +7,17 @@ import Link from "next/link";
 import { api, type Product, type ProductVariant } from "@/lib/api";
 import { ArrowLeft, MessageSquare, Package, Tag, CheckCircle2, Clock } from "lucide-react";
 
+// Customer-facing price: final price (net + IVA), what the customer actually pays.
 function lowestPrice(product: Product): number | null {
   const prices = product.variants
-    .filter((v) => v.price !== null)
-    .map((v) => parseFloat(v.price!));
+    .map((v) => parseFloat(v.final_price))
+    .filter((p) => !Number.isNaN(p));
   return prices.length ? Math.min(...prices) : null;
 }
 
-function variantPrice(v: ProductVariant, product: Product): number | null {
-  if (v.price !== null) return parseFloat(v.price);
-  const base = parseFloat(product.base_price);
-  return base > 0 ? base : null;
+function variantPrice(v: ProductVariant): number | null {
+  const final = parseFloat(v.final_price);
+  return Number.isNaN(final) ? null : final;
 }
 
 function SkeletonDetail() {
@@ -69,7 +69,7 @@ export default function ProductoDetailPage() {
   }
 
   const displayPrice = selectedVariant
-    ? variantPrice(selectedVariant, product)
+    ? variantPrice(selectedVariant)
     : lowestPrice(product);
 
   const hasMultipleVariants = product.variants.length > 1;
@@ -136,7 +136,7 @@ export default function ProductoDetailPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {product.variants.map((v) => {
-                const price = variantPrice(v, product);
+                const price = variantPrice(v);
                 const isSelected = selectedVariant?.id === v.id;
                 const inStock = product.made_to_order || v.stock_qty > 0;
 

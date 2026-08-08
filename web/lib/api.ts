@@ -47,6 +47,7 @@ export type ConsultationStatus = "pendiente" | "en_proceso" | "cerrada";
 export type QuoteStatus = "borrador" | "enviada" | "aprobada" | "rechazada" | "vencida";
 export type QuoteItemKind = "product" | "service";
 export type InstallationCostType = "fixed" | "percentage";
+export type IvaRate = "0" | "10.5" | "21";
 
 // ── Tipos base ────────────────────────────────────────────────────────────────
 
@@ -92,8 +93,9 @@ export type ProductVariant = {
   sku: string;
   name: string;
   attributes: Record<string, unknown> | null;
-  price: string | null;
+  price: string; // net
   stock_qty: number;
+  final_price: string; // net + IVA, computed from the parent product's iva_rate
 };
 
 export type Product = {
@@ -101,7 +103,7 @@ export type Product = {
   name: string;
   slug: string;
   description: string | null;
-  base_price: string;
+  iva_rate: IvaRate;
   image_url: string | null;
   made_to_order: boolean;
   category_id: string | null;
@@ -167,6 +169,7 @@ export type QuoteItem = {
   quantity: number;
   unit_price: string;
   subtotal: string;
+  iva_rate: string;
 };
 
 export type Quote = {
@@ -182,12 +185,14 @@ export type Quote = {
   installation_cost_type: InstallationCostType | null;
   installation_cost_value: string | null;
   installation_cost_amount: string;
+  contempla_iva: boolean;
   created_at: string;
   updated_at: string;
   updated_by_id: string | null;
   updated_by_name: string | null;
   items: QuoteItem[];
   total: string;
+  iva_amount: string;
   // Internal fields (only present in vendor/admin responses)
   cost_notes?: string | null;
   margin_notes?: string | null;

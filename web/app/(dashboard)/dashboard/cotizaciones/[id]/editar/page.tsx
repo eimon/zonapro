@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api, type InstallationCostType, type Product, type Quote } from "@/lib/api";
@@ -19,6 +19,7 @@ const schema = z.object({
   cost_notes: z.string().optional(),
   margin_notes: z.string().optional(),
   internal_comments: z.string().optional(),
+  contempla_iva: z.boolean(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -37,6 +38,7 @@ function itemsFromQuote(quote: Quote): QuoteItemDraft[] {
       product_sku: item.product_sku_snapshot ?? "",
       quantity: item.quantity,
       unit_price: item.unit_price,
+      iva_rate: item.iva_rate,
     }));
 }
 
@@ -56,9 +58,12 @@ export default function EditarCotizacionPage() {
   const {
     register,
     handleSubmit,
+    control,
     reset,
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
+
+  const contemplaIva = useWatch({ control, name: "contempla_iva" });
 
   useEffect(() => {
     const token = getToken();
@@ -83,6 +88,7 @@ export default function EditarCotizacionPage() {
           cost_notes: q.cost_notes ?? "",
           margin_notes: q.margin_notes ?? "",
           internal_comments: q.internal_comments ?? "",
+          contempla_iva: q.contempla_iva,
         });
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar la cotización"))
@@ -266,6 +272,20 @@ export default function EditarCotizacionPage() {
           )}
         </div>
 
+        {/* IVA */}
+        <div>
+          <label className="flex items-center gap-3 cursor-pointer group w-fit">
+            <input
+              type="checkbox"
+              className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 accent-brand-green"
+              {...register("contempla_iva")}
+            />
+            <span className="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
+              Incluir IVA en esta cotización
+            </span>
+          </label>
+        </div>
+
         {/* Notes (visible to client) */}
         <div>
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -293,6 +313,7 @@ export default function EditarCotizacionPage() {
             installationCostValue={installationCostValue}
             onInstallationCostTypeChange={setInstallationCostType}
             onInstallationCostValueChange={setInstallationCostValue}
+            contemplaIva={contemplaIva ?? true}
           />
         </div>
 

@@ -17,6 +17,9 @@ class QuoteItemCreate(BaseModel):
     # common
     quantity: int = 1
     unit_price: Decimal
+    # Only honored for kind=service; ignored server-side for kind=product,
+    # where it's always derived from the product's own iva_rate.
+    iva_rate: Optional[Decimal] = None
 
 
 class QuoteItemResponse(BaseModel):
@@ -32,6 +35,7 @@ class QuoteItemResponse(BaseModel):
     quantity: int
     unit_price: Decimal
     subtotal: Decimal
+    iva_rate: Decimal
 
     model_config = {"from_attributes": True}
 
@@ -46,6 +50,7 @@ class QuoteCreate(BaseModel):
     consultation_id: Optional[uuid.UUID] = None
     installation_cost_type: Optional[InstallationCostType] = None
     installation_cost_value: Optional[Decimal] = None
+    contempla_iva: bool = True
     # Internal fields (VENDEDOR fills these in)
     cost_notes: Optional[str] = None
     margin_notes: Optional[str] = None
@@ -62,6 +67,7 @@ class QuoteUpdate(BaseModel):
     notes: Optional[str] = None
     installation_cost_type: Optional[InstallationCostType] = None
     installation_cost_value: Optional[Decimal] = None
+    contempla_iva: Optional[bool] = None
     cost_notes: Optional[str] = None
     margin_notes: Optional[str] = None
     internal_comments: Optional[str] = None
@@ -82,12 +88,14 @@ class QuoteClientResponse(BaseModel):
     installation_cost_type: Optional[InstallationCostType]
     installation_cost_value: Optional[Decimal]
     installation_cost_amount: Decimal = Decimal("0")
+    contempla_iva: bool
     created_at: datetime
     updated_at: datetime
     updated_by_id: Optional[uuid.UUID]
     updated_by_name: Optional[str] = None
     items: list[QuoteItemResponse] = []
     total: Decimal = Decimal("0")
+    iva_amount: Decimal = Decimal("0")
 
     model_config = {"from_attributes": True}
 
@@ -100,6 +108,8 @@ class QuoteClientResponse(BaseModel):
             if not hasattr(data, "total") or data.total is None:
                 items = getattr(data, "items", []) or []
                 object.__setattr__(data, "total", sum((i.subtotal for i in items), Decimal("0")))
+            if not hasattr(data, "iva_amount") or data.iva_amount is None:
+                object.__setattr__(data, "iva_amount", Decimal("0"))
         return data
 
 
