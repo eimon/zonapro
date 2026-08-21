@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -69,6 +70,24 @@ class ProductRepository(BaseRepository[Product]):
         await self.db.refresh(obj)
         return obj
 
+    async def get_all_for_export(
+        self,
+        category_id: uuid.UUID | None = None,
+        made_to_order: bool | None = None,
+    ) -> list[Product]:
+        query = (
+            select(Product)
+            .options(selectinload(Product.variants), selectinload(Product.category))
+            .where(Product.deleted_at.is_(None))
+            .order_by(Product.slug)
+        )
+        if category_id is not None:
+            query = query.where(Product.category_id == category_id)
+        if made_to_order is not None:
+            query = query.where(Product.made_to_order == made_to_order)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
 
 class ProductVariantRepository(BaseRepository[ProductVariant]):
     def __init__(self, db: AsyncSession):
@@ -110,3 +129,28 @@ class ProductVariantRepository(BaseRepository[ProductVariant]):
             .where(ProductVariant.id == id)
         )
         return result.scalars().first()
+
+    async def get_by_sku(self, sku: str, exclude_id: uuid.UUID | None = None) -> ProductVariant | None:
+        query = (
+            select(ProductVariant)
+            .options(selectinload(ProductVariant.product))
+            .where(ProductVariant.sku == sku, ProductVariant.deleted_at.is_(None))
+        )
+        if exclude_id is not None:
+            query = query.where(ProductVariant.id != exclude_id)
+        result = await self.db.execute(query)
+        return result.scalars().first()
+
+    async def soft_delete_all_for_product(self, product_id: uuid.UUID) -> int:
+        result = await self.db.execute(
+            select(ProductVariant).where(
+                ProductVariant.product_id == product_id,
+                ProductVariant.deleted_at.is_(None),
+            )
+        )
+        rows = result.scalars().all()
+        now = datetime.now(timezone.utc)
+        for variant in rows:
+            variant.deleted_at = now
+        await self.db.flush()
+        return len(rows)

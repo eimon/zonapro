@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Text, Boolean, Integer, Numeric, CheckConstraint, UniqueConstraint, ForeignKey, Index
+from sqlalchemy import Column, String, Text, Boolean, Integer, Numeric, CheckConstraint, UniqueConstraint, ForeignKey, Index, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -44,4 +44,5 @@ class ProductVariant(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
         CheckConstraint("price >= 0", name="ck_variant_price_non_negative"),
         CheckConstraint("stock_qty >= 0", name="ck_variant_stock_non_negative"),
         UniqueConstraint("product_id", "sku", name="uq_variant_product_sku"),
+        Index("uq_variant_sku_active", "sku", unique=True, postgresql_where=text("deleted_at IS NULL")),
     )

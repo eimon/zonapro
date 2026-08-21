@@ -31,6 +31,13 @@ class ProductService:
         self.repo = ProductRepository(db)
         self.variant_repo = ProductVariantRepository(db)
 
+    async def _assert_sku_free(self, sku: str, exclude_id: uuid.UUID | None = None) -> None:
+        clash = await self.variant_repo.get_by_sku(sku, exclude_id=exclude_id)
+        if clash:
+            raise ConflictException(
+                f"El SKU '{sku}' ya pertenece al producto '{clash.product.slug}'"
+            )
+
     async def get_all(
         self,
         category_id: uuid.UUID | None = None,
@@ -57,6 +64,13 @@ class ProductService:
         if existing:
             raise ConflictException("Ya existe un producto con ese slug")
 
+        seen_skus: set[str] = set()
+        for variant_data in data.variants:
+            if variant_data.sku in seen_skus:
+                raise ConflictException(f"El SKU '{variant_data.sku}' está repetido en el mismo producto")
+            seen_skus.add(variant_data.sku)
+            await self._assert_sku_free(variant_data.sku)
+
         product = await self.repo.create(data)
 
         for variant_data in data.variants:
@@ -81,12 +95,14 @@ class ProductService:
 
     async def delete(self, id: uuid.UUID) -> None:
         obj = await self.get_by_id(id)
+        await self.variant_repo.soft_delete_all_for_product(obj.id)
         result = await self.repo.soft_delete(obj.id)
         if not result:
             raise NotFoundException("Producto no encontrado")
 
     async def create_variant(self, product_id: uuid.UUID, data: ProductVariantCreate) -> ProductVariant:
         product = await self.get_by_id(product_id)  # ensures product exists
+        await self._assert_sku_free(data.sku)
         price = _to_net_price(data.price, data.price_input_mode, product.iva_rate)
         variant = await self.variant_repo.create(product_id, data, price=price)
         variant.final_price = _compute_final_price(variant.price, product.iva_rate)
@@ -99,6 +115,8 @@ class ProductService:
         update_data = data.model_dump(exclude_unset=True)
         if "stock_qty" in update_data and update_data["stock_qty"] < 0:
             raise BadRequestException("El stock no puede ser negativo")
+        if "sku" in update_data and update_data["sku"] != obj.sku:
+            await self._assert_sku_free(update_data["sku"], exclude_id=obj.id)
 
         product = await self.repo.get_by_id(obj.product_id)
         price_input_mode = update_data.pop("price_input_mode", "net")

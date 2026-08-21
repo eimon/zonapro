@@ -111,6 +111,17 @@ export type Product = {
   variants: ProductVariant[];
 };
 
+export type ImportRowError = { row_number: number | null; identifier: string | null; message: string };
+export type ImportReport = {
+  dry_run: boolean;
+  rows_processed: number;
+  products_created: number;
+  products_updated: number;
+  variants_created: number;
+  variants_updated: number;
+  errors: ImportRowError[];
+};
+
 export type PackageOption = {
   id: string;
   group_id: string;
@@ -310,6 +321,29 @@ export const api = {
         request<ProductVariant>(`/api/v1/products/variants/${variantId}`, { method: "PATCH", body: JSON.stringify(data) }, token),
       remove: (variantId: string, token: string) =>
         request<void>(`/api/v1/products/variants/${variantId}`, { method: "DELETE" }, token),
+    },
+    importCsv: async (file: File, dryRun: boolean, token: string): Promise<ImportReport> => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const qs = dryRun ? "?dry_run=true" : "?dry_run=false";
+      const res = await fetch(`${API_URL}/api/v1/products/import${qs}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new ApiError(body.detail ?? "Error al importar el CSV", res.status);
+      }
+      return res.json();
+    },
+    exportCsv: async (token: string): Promise<string> => {
+      const res = await fetch(`${API_URL}/api/v1/products/export`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Error al exportar el catálogo");
+      const blob = await res.blob();
+      return URL.createObjectURL(blob);
     },
   },
 

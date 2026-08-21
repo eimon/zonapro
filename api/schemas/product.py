@@ -72,3 +72,19 @@ class ProductResponse(BaseModel):
     variants: list[ProductVariantResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+class ImportRowError(BaseModel):
+    row_number: int | None = None  # None = group-level error
+    identifier: str | None = None  # slug or sku
+    message: str
+
+
+class ImportReport(BaseModel):
+    dry_run: bool
+    rows_processed: int
+    products_created: int
+    products_updated: int
+    variants_created: int
+    variants_updated: int
+    errors: list[ImportRowError] = []

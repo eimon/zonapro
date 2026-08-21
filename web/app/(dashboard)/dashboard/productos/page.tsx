@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, type Product } from "@/lib/api";
+import { api, type Product, type ImportReport } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import Image from "next/image";
 import Link from "next/link";
-import { Package, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Package, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { ProductCsvPanel } from "@/components/product-csv-panel";
 
 function totalStock(p: Product) {
   return p.variants.reduce((sum, v) => sum + v.stock_qty, 0);
@@ -164,6 +165,7 @@ export default function ProductosPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [importReport, setImportReport] = useState<ImportReport | null>(null);
 
   useEffect(() => {
     api.products
@@ -172,6 +174,13 @@ export default function ProductosPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const handleImported = (report: ImportReport) => {
+    setImportReport(report);
+    if (!report.dry_run) {
+      api.products.list().then(setProducts).catch(() => {});
+    }
+  };
 
   const handleDelete = async (product: Product) => {
     const token = getToken();
@@ -206,16 +215,76 @@ export default function ProductosPage() {
               : `${products.length} producto${products.length !== 1 ? "s" : ""} en el catálogo`}
           </p>
         </div>
-        <Link
-          href="/dashboard/productos/nuevo"
-          className="flex items-center gap-2 bg-brand-green text-zinc-950 text-sm font-medium px-4 py-2 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo producto
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <ProductCsvPanel onImported={handleImported} />
+          <Link
+            href="/dashboard/productos/nuevo"
+            className="flex items-center gap-2 bg-brand-green text-zinc-950 text-sm font-medium px-4 py-2 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo producto
+          </Link>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
+
+      {importReport && (
+        <div
+          className={`rounded-xl border p-4 space-y-3 ${
+            importReport.dry_run
+              ? "bg-amber-50 dark:bg-amber-500/10 border-amber-200/80 dark:border-amber-500/20"
+              : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {importReport.dry_run && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-500/30">
+                  Simulación — nada se guardó
+                </span>
+              )}
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                {importReport.rows_processed} filas procesadas
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-500/20">
+                {importReport.products_created} productos creados
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-200/80 dark:border-sky-500/20">
+                {importReport.products_updated} productos actualizados
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-500/20">
+                {importReport.variants_created} variantes creadas
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-200/80 dark:border-sky-500/20">
+                {importReport.variants_updated} variantes actualizadas
+              </span>
+              {importReport.errors.length > 0 && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200/80 dark:border-red-500/20">
+                  {importReport.errors.length} errores
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setImportReport(null)}
+              className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 cursor-pointer shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {importReport.errors.length > 0 && (
+            <ul className="max-h-48 overflow-y-auto space-y-1 text-xs text-zinc-600 dark:text-zinc-400 border-t border-zinc-200 dark:border-zinc-800 pt-2">
+              {importReport.errors.map((err, i) => (
+                <li key={i}>
+                  fila {err.row_number ?? "?"} · {err.identifier ?? "—"} — {err.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative max-w-sm">
