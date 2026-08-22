@@ -337,8 +337,8 @@ export const api = {
       }
       return res.json();
     },
-    exportCsv: async (token: string): Promise<string> => {
-      const res = await fetch(`${API_URL}/api/v1/products/export`, {
+    exportCsv: async (token: string, delimiter: "," | ";" = ","): Promise<string> => {
+      const res = await fetch(`${API_URL}/api/v1/products/export?delimiter=${encodeURIComponent(delimiter)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Error al exportar el catálogo");

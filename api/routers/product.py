@@ -1,5 +1,6 @@
 import io
 import uuid
+from typing import Literal
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,10 +70,11 @@ async def upload_product_image(
 async def export_products(
     category_id: uuid.UUID | None = Query(default=None),
     made_to_order: bool | None = Query(default=None),
+    delimiter: Literal[",", ";"] = Query(default=","),
     db: AsyncSession = Depends(get_db),
     _=Depends(has_role(Permission.PRODUCT_MANAGE)),
 ):
-    csv_text = await ProductExportService(db).build_csv(category_id, made_to_order)
+    csv_text = await ProductExportService(db).build_csv(category_id, made_to_order, delimiter=delimiter)
     return StreamingResponse(
         io.BytesIO(csv_text.encode("utf-8-sig")),
         media_type="text/csv; charset=utf-8",

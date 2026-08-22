@@ -270,9 +270,9 @@ def _csv_safe(value: str) -> str:
     return value
 
 
-def write_csv(rows: list[list[str]]) -> str:
+def write_csv(rows: list[list[str]], delimiter: str = ",") -> str:
     buffer = io.StringIO()
-    writer = csv.writer(buffer, delimiter=",", quoting=csv.QUOTE_MINIMAL, lineterminator="\r\n")
+    writer = csv.writer(buffer, delimiter=delimiter, quoting=csv.QUOTE_MINIMAL, lineterminator="\r\n")
     writer.writerow(COLUMNS)
     for row in rows:
         writer.writerow([_csv_safe(cell) for cell in row])

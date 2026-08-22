@@ -19,6 +19,7 @@ class ProductExportService:
         self,
         category_id: uuid.UUID | None = None,
         made_to_order: bool | None = None,
+        delimiter: str = ",",
     ) -> str:
         products = await self.repo.get_all_for_export(
             category_id=category_id,
@@ -33,4 +34,4 @@ class ProductExportService:
                 final_price = _compute_final_price(variant.price, product.iva_rate)
                 rows.append(serialize_row(product, variant, final_price))
 
-        return write_csv(rows)
+        return write_csv(rows, delimiter=delimiter)

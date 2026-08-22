@@ -7,6 +7,7 @@ import { getToken } from "@/lib/auth";
 
 export function ProductCsvPanel({ onImported }: { onImported: (report: ImportReport) => void }) {
   const [dryRun, setDryRun] = useState(false);
+  const [semicolon, setSemicolon] = useState(false);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export function ProductCsvPanel({ onImported }: { onImported: (report: ImportRep
     setExporting(true);
     setError(null);
     try {
-      const url = await api.products.exportCsv(token);
+      const url = await api.products.exportCsv(token, semicolon ? ";" : ",");
       const a = document.createElement("a");
       a.href = url;
       a.download = `catalogo-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -86,6 +87,16 @@ export function ProductCsvPanel({ onImported }: { onImported: (report: ImportRep
           className="rounded border-zinc-300 dark:border-zinc-700 text-brand-green focus:ring-brand-green/25"
         />
         Simulación (no guarda)
+      </label>
+
+      <label className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 select-none">
+        <input
+          type="checkbox"
+          checked={semicolon}
+          onChange={(e) => setSemicolon(e.target.checked)}
+          className="rounded border-zinc-300 dark:border-zinc-700 text-brand-green focus:ring-brand-green/25"
+        />
+        Exportar con &quot;;&quot; (Excel es-AR)
       </label>
 
       {error && (
