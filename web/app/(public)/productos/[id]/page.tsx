@@ -61,7 +61,7 @@ export default function ProductoDetailPage() {
     return (
       <div className="py-32 px-6 text-center text-zinc-500">
         Producto no encontrado.{" "}
-        <Link href="/productos" className="text-brand-green hover:underline">
+        <Link href="/productos" className="text-brand-blue hover:underline">
           Ver catálogo
         </Link>
       </div>
@@ -148,14 +148,14 @@ export default function ProductoDetailPage() {
                     disabled={!hasMultipleVariants}
                     className={`relative text-left p-4 rounded-xl border transition-all duration-150 cursor-pointer ${
                       isSelected
-                        ? "bg-brand-green/10 border-brand-green/50 ring-1 ring-brand-green/30"
+                        ? "bg-brand-blue/10 border-brand-blue/50 ring-1 ring-brand-blue/30"
                         : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-600"
                     } ${!hasMultipleVariants ? "cursor-default" : ""}`}
                   >
                     {isSelected && (
-                      <CheckCircle2 className="absolute top-3 right-3 w-4 h-4 text-brand-green" />
+                      <CheckCircle2 className="absolute top-3 right-3 w-4 h-4 text-brand-blue" />
                     )}
-                    <p className={`font-medium text-sm ${isSelected ? "text-brand-green" : "text-zinc-900 dark:text-white"}`}>
+                    <p className={`font-medium text-sm ${isSelected ? "text-brand-blue" : "text-zinc-900 dark:text-white"}`}>
                       {v.name}
                     </p>
                     <p className="text-xs text-zinc-500 font-mono mt-0.5">{v.sku}</p>
@@ -214,7 +214,7 @@ export default function ProductoDetailPage() {
 
           <Link
             href={consultaHref}
-            className="flex items-center gap-2 bg-brand-green text-zinc-950 font-semibold px-6 py-3 rounded-xl transition-[filter] duration-150 hover:brightness-110 active:brightness-95 whitespace-nowrap"
+            className="flex items-center gap-2 bg-brand-blue text-white font-semibold px-6 py-3 rounded-xl transition-[filter] duration-150 hover:brightness-110 active:brightness-95 whitespace-nowrap"
           >
             <MessageSquare className="w-4 h-4" />
             {product.made_to_order ? "Solicitar cotización" : "Consultar"}

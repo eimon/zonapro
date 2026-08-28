@@ -16,7 +16,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ZonaPro — Tu hogar, inteligente",
   description: "Soluciones inteligentes en climatización, domótica, eficiencia térmica y energía solar para hogares, comercios y empresas.",
-  icons: { icon: "/favicon.png" },
 };
 
 const themeInitScript = `

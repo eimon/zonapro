@@ -13,7 +13,7 @@ from core.branding import (
     COMPANY_ADDRESS,
     COMPANY_EMAIL,
     COMPANY_NAME,
-    COMPANY_PHONE,
+    COMPANY_PHONES,
     COMPANY_TAGLINE,
     LOGO_BASE64,
 )
@@ -70,7 +70,7 @@ def generate_quote_pdf(quote: Quote) -> bytes:
         company_name=COMPANY_NAME,
         company_tagline=COMPANY_TAGLINE,
         company_email=COMPANY_EMAIL,
-        company_phone=COMPANY_PHONE,
+        company_phones=COMPANY_PHONES,
         company_address=COMPANY_ADDRESS,
         accent_color=ACCENT_COLOR,
         logo_base64=LOGO_BASE64,

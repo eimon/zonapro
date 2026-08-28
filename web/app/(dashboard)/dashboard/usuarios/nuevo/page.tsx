@@ -43,7 +43,7 @@ function InputField({
 }
 
 const inputClass =
-  "w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-green/25 focus:border-brand-green transition-all duration-150";
+  "w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-blue/25 focus:border-brand-blue transition-all duration-150";
 
 export default function NuevoUsuarioPage() {
   const router = useRouter();
@@ -114,7 +114,7 @@ export default function NuevoUsuarioPage() {
           <div className="flex items-center gap-3 mt-2">
             <Link
               href="/dashboard/usuarios"
-              className="px-4 py-2 text-sm font-medium bg-brand-green text-zinc-950 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
+              className="px-4 py-2 text-sm font-medium bg-brand-blue text-white rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
             >
               Volver a usuarios
             </Link>
@@ -174,7 +174,7 @@ export default function NuevoUsuarioPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-2 bg-brand-green text-zinc-950 text-sm font-medium px-6 py-2 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-2 bg-brand-blue text-white text-sm font-medium px-6 py-2 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? "Enviando..." : "Crear e invitar"}
             </button>

@@ -54,7 +54,7 @@ function SetPasswordForm() {
         <p className="text-sm text-red-500 dark:text-red-400">
           Este enlace no es válido. Pedile a un administrador que te reenvíe la invitación.
         </p>
-        <Link href="/login" className="text-sm text-brand-green hover:underline">
+        <Link href="/login" className="text-sm text-brand-blue hover:underline">
           Ir a iniciar sesión
         </Link>
       </div>
@@ -90,7 +90,7 @@ function SetPasswordForm() {
             id="password"
             type="password"
             autoComplete="new-password"
-            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none transition-colors duration-150 focus:border-brand-green/60 focus:ring-2 focus:ring-brand-green/30"
+            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none transition-colors duration-150 focus:border-brand-blue/60 focus:ring-2 focus:ring-brand-blue/30"
             {...register("password")}
           />
           {errors.password && (
@@ -106,7 +106,7 @@ function SetPasswordForm() {
             id="confirm"
             type="password"
             autoComplete="new-password"
-            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none transition-colors duration-150 focus:border-brand-green/60 focus:ring-2 focus:ring-brand-green/30"
+            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none transition-colors duration-150 focus:border-brand-blue/60 focus:ring-2 focus:ring-brand-blue/30"
             {...register("confirm")}
           />
           {errors.confirm && (
@@ -119,7 +119,7 @@ function SetPasswordForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-xl bg-brand-green px-4 py-2.5 text-sm font-semibold text-zinc-950 transition-[filter] duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-50 cursor-pointer"
+          className="w-full rounded-xl bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white transition-[filter] duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-50 cursor-pointer"
         >
           {isSubmitting ? "Guardando..." : "Guardar contraseña"}
         </button>

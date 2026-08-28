@@ -1,5 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
+import logoDark from "@/assets/logo-dark.png";
+import logoLight from "@/assets/logo-light.png";
+import iconMark from "@/app/icon.png";
 
 const SIZES = {
   default: { image: "h-[2.625rem]" },
@@ -17,18 +20,14 @@ export function Logo({
   return (
     <Link href="/" className={`flex items-center ${className}`}>
       <Image
-        src="/logo-light.png"
+        src={logoLight}
         alt="ZonaPro"
-        width={400}
-        height={140}
         priority
         className={`${image} p-3 w-auto dark:hidden`}
       />
       <Image
-        src="/logo-dark.png"
+        src={logoDark}
         alt="ZonaPro"
-        width={400}
-        height={140}
         priority
         className={`${image} p-3 w-auto hidden dark:block`}
       />
@@ -39,10 +38,8 @@ export function Logo({
 export function LogoMark({ className = "" }: { className?: string }) {
   return (
     <Image
-      src="/favicon.png"
+      src={iconMark}
       alt="ZonaPro"
-      width={501}
-      height={501}
       className={className}
     />
   );

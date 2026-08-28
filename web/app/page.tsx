@@ -42,12 +42,12 @@ export default function HomePage() {
       <section className="relative flex min-h-screen items-center justify-center px-6 pt-20 overflow-hidden">
         <HeroBackground />
         <div className="relative max-w-4xl mx-auto text-center space-y-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-green/10 border border-brand-green/20 text-brand-green text-xs font-medium tracking-widest uppercase">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-blue/10 border border-brand-blue/20 text-brand-blue text-xs font-medium tracking-widest uppercase">
             Hogares · Comercios · Empresas
           </div>
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-white leading-[1.05]">
             Tecnología que conecta,{" "}
-            <span className="text-brand-green">eficiencia</span>{" "}
+            <span className="text-brand-blue">eficiencia</span>{" "}
             que transforma.
           </h1>
           <p className="text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed">
@@ -57,7 +57,7 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/#servicios"
-              className="flex items-center gap-2 bg-brand-green text-zinc-950 font-semibold px-6 py-3 rounded-xl transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
+              className="flex items-center gap-2 bg-brand-blue text-white font-semibold px-6 py-3 rounded-xl transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
             >
               Ver servicios
               <ArrowRight className="w-4 h-4" />
@@ -77,7 +77,7 @@ export default function HomePage() {
       <section id="servicios" className="py-24 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16 space-y-3">
-            <p className="text-brand-green text-sm font-semibold tracking-widest uppercase">
+            <p className="text-brand-blue text-sm font-semibold tracking-widest uppercase">
               Lo que hacemos
             </p>
             <h2 className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-white">
@@ -92,11 +92,11 @@ export default function HomePage() {
             {SERVICES.map(({ icon: Icon, title, description }) => (
               <div
                 key={title}
-                className="group relative bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 hover:border-brand-green/30 rounded-2xl p-7 transition-all duration-200"
+                className="group relative bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/30 rounded-2xl p-7 transition-all duration-200"
               >
                 <div className="mb-5">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-green/10 border border-brand-green/20 group-hover:bg-brand-green/15 group-hover:border-brand-green/30 transition-colors duration-200">
-                    <Icon className="w-6 h-6 text-brand-green" />
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-blue/10 border border-brand-blue/20 group-hover:bg-brand-blue/15 group-hover:border-brand-blue/30 transition-colors duration-200">
+                    <Icon className="w-6 h-6 text-brand-blue" />
                   </div>
                 </div>
                 <h3 className="text-base font-bold text-zinc-900 dark:text-white uppercase tracking-wide mb-2">
@@ -114,8 +114,8 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-8">
           {VALUE_PROPS.map(({ icon: Icon, label }) => (
             <div key={label} className="flex items-center gap-4">
-              <div className="shrink-0 w-10 h-10 rounded-lg bg-brand-green/10 border border-brand-green/20 flex items-center justify-center">
-                <Icon className="w-5 h-5 text-brand-green" />
+              <div className="shrink-0 w-10 h-10 rounded-lg bg-brand-blue/10 border border-brand-blue/20 flex items-center justify-center">
+                <Icon className="w-5 h-5 text-brand-blue" />
               </div>
               <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 leading-snug">{label}</p>
             </div>
@@ -134,7 +134,7 @@ export default function HomePage() {
           </p>
           <Link
             href="/consulta"
-            className="inline-flex items-center gap-2 bg-brand-green text-zinc-950 font-semibold px-8 py-3.5 rounded-xl transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
+            className="inline-flex items-center gap-2 bg-brand-blue text-white font-semibold px-8 py-3.5 rounded-xl transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
           >
             Iniciar consulta
             <ArrowRight className="w-4 h-4" />

@@ -89,7 +89,7 @@ export function Footer() {
               href="https://eimon.dev"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-zinc-500 dark:text-zinc-400 hover:text-brand-green transition-colors duration-150"
+              className="text-zinc-500 dark:text-zinc-400 hover:text-brand-blue transition-colors duration-150"
             >
               eimon.dev
             </a>

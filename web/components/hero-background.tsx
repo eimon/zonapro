@@ -54,7 +54,7 @@ export function HeroBackground() {
 
       {/* Scrim: always the dark-mode treatment — the light one read oddly over the photo */}
       <div className="absolute inset-0 bg-zinc-950/75" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-green/10 via-zinc-950/60 to-zinc-950" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-blue/10 via-zinc-950/60 to-zinc-950" />
     </div>
   );
 }

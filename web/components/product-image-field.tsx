@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
 const inputClass =
-  "w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-green/25 focus:border-brand-green transition-all duration-150";
+  "w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-blue/25 focus:border-brand-blue transition-all duration-150";
 
 type Mode = "upload" | "url";
 
@@ -88,7 +88,7 @@ export function ProductImageField({
         <div className="flex-1 min-w-0">
           {mode === "upload" ? (
             <div className="space-y-1">
-              <label className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-green hover:opacity-80 transition-opacity cursor-pointer">
+              <label className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-blue hover:opacity-80 transition-opacity cursor-pointer">
                 <Upload className="w-3.5 h-3.5" />
                 {uploading ? "Subiendo..." : value ? "Reemplazar imagen" : "Elegir archivo"}
                 <input

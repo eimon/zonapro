@@ -150,7 +150,7 @@ export function Sidebar({
                 title={collapsed ? label : undefined}
                 className={`flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 cursor-pointer whitespace-nowrap ${
                   isActive
-                    ? "bg-brand-green text-zinc-950"
+                    ? "bg-brand-blue text-white"
                     : "text-white/60 hover:text-white hover:bg-white/10"
                 }`}
               >

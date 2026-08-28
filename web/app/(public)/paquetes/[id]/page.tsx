@@ -59,7 +59,7 @@ export default async function PaqueteDetailPage({ params }: Props) {
                   >
                     <div className="flex items-center gap-2">
                       {option.is_default && (
-                        <span className="text-xs bg-brand-green/10 text-brand-green px-1.5 py-0.5 rounded">
+                        <span className="text-xs bg-brand-blue/10 text-brand-blue px-1.5 py-0.5 rounded">
                           Incluida
                         </span>
                       )}
@@ -81,7 +81,7 @@ export default async function PaqueteDetailPage({ params }: Props) {
 
       <Link
         href={`/consulta?package_id=${pkg.id}`}
-        className="inline-block bg-brand-green text-zinc-950 px-6 py-3 rounded-xl transition-[filter] hover:brightness-110 active:brightness-95 font-semibold"
+        className="inline-block bg-brand-blue text-white px-6 py-3 rounded-xl transition-[filter] hover:brightness-110 active:brightness-95 font-semibold"
       >
         Solicitar consulta
       </Link>

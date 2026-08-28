@@ -17,7 +17,7 @@ const STATUS_LABELS: Record<QuoteStatus, string> = {
 const STATUS_COLORS: Record<QuoteStatus, string> = {
   borrador: "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400",
   enviada: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400",
-  aprobada: "bg-brand-green/10 text-brand-green",
+  aprobada: "bg-brand-blue/10 text-brand-blue",
   rechazada: "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400",
   vencida: "bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400",
 };
@@ -160,7 +160,7 @@ export default function CotizacionesPage() {
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">Cotizaciones</h1>
         <Link
           href="/dashboard/cotizaciones/nueva"
-          className="inline-flex items-center gap-2 rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-zinc-950 transition-[filter] hover:brightness-110 active:brightness-95"
+          className="inline-flex items-center gap-2 rounded-md bg-brand-blue px-4 py-2 text-sm font-medium text-white transition-[filter] hover:brightness-110 active:brightness-95"
         >
           + Nueva cotización
         </Link>

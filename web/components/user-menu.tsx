@@ -42,7 +42,7 @@ export function UserMenu() {
     return (
       <Link
         href="/login"
-        className="text-sm font-semibold bg-brand-green text-zinc-950 px-4 py-2 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
+        className="text-sm font-semibold bg-brand-blue text-white px-4 py-2 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
       >
         Ingresar
       </Link>

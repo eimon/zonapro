@@ -26,7 +26,7 @@ function ProductCard({
   return (
     <div className="group flex flex-col bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 rounded-2xl overflow-hidden transition-all duration-200">
       {/* Color band */}
-      <div className="h-1 bg-brand-green opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+      <div className="h-1 bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
 
       {/* Image */}
       <div className="relative aspect-[4/3] bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
@@ -93,7 +93,7 @@ function ProductCard({
 
           <Link
             href={`/productos/${product.id}`}
-            className="shrink-0 flex items-center gap-1.5 text-xs font-semibold bg-brand-green text-zinc-950 px-3 py-2 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
+            className="shrink-0 flex items-center gap-1.5 text-xs font-semibold bg-brand-blue text-white px-3 py-2 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
           >
             <MessageSquare className="w-3.5 h-3.5" />
             Ver más
@@ -133,7 +133,7 @@ export function ProductsGrid({
             onClick={() => setActiveCategory(null)}
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-150 cursor-pointer ${
               activeCategory === null
-                ? "bg-brand-green text-zinc-950"
+                ? "bg-brand-blue text-white"
                 : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:border-zinc-300 dark:hover:border-zinc-600"
             }`}
           >
@@ -145,7 +145,7 @@ export function ProductsGrid({
               onClick={() => setActiveCategory(cat.id)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-150 cursor-pointer ${
                 activeCategory === cat.id
-                  ? "bg-brand-green text-zinc-950"
+                  ? "bg-brand-blue text-white"
                   : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:border-zinc-300 dark:hover:border-zinc-600"
               }`}
             >

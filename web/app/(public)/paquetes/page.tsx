@@ -8,7 +8,7 @@ const complexityLabel: Record<string, string> = {
 };
 
 const complexityColor: Record<string, string> = {
-  basico: "bg-brand-green/10 text-brand-green border border-brand-green/20",
+  basico: "bg-brand-blue/10 text-brand-blue border border-brand-blue/20",
   medio: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20",
   avanzado: "bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20",
 };
@@ -26,7 +26,7 @@ export default async function PaquetesPage() {
           <Link
             key={pkg.id}
             href={`/paquetes/${pkg.id}`}
-            className="block bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 hover:border-brand-green/30 rounded-2xl p-6 transition-all duration-200"
+            className="block bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/30 rounded-2xl p-6 transition-all duration-200"
           >
             <div className="flex items-start justify-between mb-2 gap-2">
               <h2 className="text-base font-semibold text-zinc-900 dark:text-white">{pkg.name}</h2>

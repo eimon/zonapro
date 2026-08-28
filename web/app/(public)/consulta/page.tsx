@@ -62,7 +62,7 @@ function ConsultaForm() {
   if (submitted) {
     return (
       <div className="max-w-md mx-auto px-6 py-16 text-center">
-        <div className="text-brand-green text-5xl mb-4">✓</div>
+        <div className="text-brand-blue text-5xl mb-4">✓</div>
         <h1 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white">¡Consulta enviada!</h1>
         <p className="text-zinc-600 dark:text-zinc-400 mb-4">
           Tu número de consulta es:{" "}
@@ -97,7 +97,7 @@ function ConsultaForm() {
           </label>
           <input
             {...register("name")}
-            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
+            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-blue/40 focus:border-brand-blue"
             placeholder="Tu nombre"
           />
           {errors.name && <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.name.message}</p>}
@@ -110,7 +110,7 @@ function ConsultaForm() {
           <input
             {...register("email")}
             type="email"
-            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
+            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-blue/40 focus:border-brand-blue"
             placeholder="tu@email.com"
           />
           {errors.email && <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.email.message}</p>}
@@ -121,7 +121,7 @@ function ConsultaForm() {
           <input
             {...register("phone")}
             type="tel"
-            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
+            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-blue/40 focus:border-brand-blue"
             placeholder="+54 11 1234-5678"
           />
         </div>
@@ -131,7 +131,7 @@ function ConsultaForm() {
           <textarea
             {...register("message")}
             rows={4}
-            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green resize-none"
+            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-blue/40 focus:border-brand-blue resize-none"
             placeholder="Contanos tu consulta..."
           />
         </div>
@@ -141,7 +141,7 @@ function ConsultaForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full bg-brand-green text-zinc-950 font-semibold py-3 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-60"
+          className="w-full bg-brand-blue text-white font-semibold py-3 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-60"
         >
           {isSubmitting ? "Enviando..." : "Enviar consulta"}
         </button>

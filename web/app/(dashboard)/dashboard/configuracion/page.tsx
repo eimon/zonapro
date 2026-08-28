@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { getRole, getToken } from "@/lib/auth";
 
 const inputClass =
-  "w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-green/25 focus:border-brand-green transition-all duration-150";
+  "w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-blue/25 focus:border-brand-blue transition-all duration-150";
 
 function SectionCard({
   icon: Icon,
@@ -23,8 +23,8 @@ function SectionCard({
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-6 space-y-4">
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-lg bg-brand-green/10 flex items-center justify-center shrink-0">
-          <Icon className="w-4 h-4 text-brand-green" />
+        <div className="w-9 h-9 rounded-lg bg-brand-blue/10 flex items-center justify-center shrink-0">
+          <Icon className="w-4 h-4 text-brand-blue" />
         </div>
         <div>
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">{title}</h2>
@@ -155,7 +155,7 @@ export default function ConfiguracionPage() {
             {resendSaving ? "Guardando..." : "Guardar"}
           </button>
         </form>
-        {resendMessage && <p className="text-xs text-brand-green">{resendMessage}</p>}
+        {resendMessage && <p className="text-xs text-brand-blue">{resendMessage}</p>}
       </SectionCard>
 
       <SectionCard
@@ -173,7 +173,7 @@ export default function ConfiguracionPage() {
             aria-checked={registrationEnabled}
             onClick={handleToggleRegistration}
             disabled={registrationSaving}
-            className={`relative w-11 h-6 rounded-full transition-colors duration-150 shrink-0 disabled:opacity-50 cursor-pointer ${registrationEnabled ? "bg-brand-green" : "bg-zinc-200 dark:bg-zinc-700"
+            className={`relative w-11 h-6 rounded-full transition-colors duration-150 shrink-0 disabled:opacity-50 cursor-pointer ${registrationEnabled ? "bg-brand-blue" : "bg-zinc-200 dark:bg-zinc-700"
               }`}
           >
             <span

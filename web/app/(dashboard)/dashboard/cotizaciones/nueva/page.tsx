@@ -108,7 +108,7 @@ export default function NuevaCotizacionPage() {
           </label>
           <input
             {...register("title")}
-            className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+            className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
             placeholder="Ej. Sistema domótico residencial"
           />
           {errors.title && (
@@ -123,7 +123,7 @@ export default function NuevaCotizacionPage() {
           </label>
           <input
             {...register("client_name")}
-            className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+            className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
             placeholder="Juan García"
           />
           {errors.client_name && (
@@ -140,7 +140,7 @@ export default function NuevaCotizacionPage() {
             <input
               {...register("client_email")}
               type="email"
-              className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+              className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
               placeholder="juan@email.com"
             />
             {errors.client_email && (
@@ -153,7 +153,7 @@ export default function NuevaCotizacionPage() {
             </label>
             <input
               {...register("client_phone")}
-              className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+              className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
               placeholder="+54 9 11 1234-5678"
             />
           </div>
@@ -168,7 +168,7 @@ export default function NuevaCotizacionPage() {
             {...register("validity_days", { valueAsNumber: true })}
             type="number"
             min={1}
-            className="block w-32 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+            className="block w-32 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
           />
           {errors.validity_days && (
             <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.validity_days.message}</p>
@@ -180,7 +180,7 @@ export default function NuevaCotizacionPage() {
           <label className="flex items-center gap-3 cursor-pointer group w-fit">
             <input
               type="checkbox"
-              className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 accent-brand-green"
+              className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 accent-brand-blue"
               {...register("contempla_iva")}
             />
             <span className="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
@@ -197,7 +197,7 @@ export default function NuevaCotizacionPage() {
           <textarea
             {...register("notes")}
             rows={3}
-            className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+            className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
             placeholder="Condiciones de pago, plazos, garantías..."
           />
         </div>
@@ -234,7 +234,7 @@ export default function NuevaCotizacionPage() {
               <textarea
                 {...register("cost_notes")}
                 rows={2}
-                className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+                className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
                 placeholder="Desglose de costos internos..."
               />
             </div>
@@ -246,7 +246,7 @@ export default function NuevaCotizacionPage() {
               <textarea
                 {...register("margin_notes")}
                 rows={2}
-                className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+                className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
                 placeholder="Margen aplicado, descuentos, etc..."
               />
             </div>
@@ -258,7 +258,7 @@ export default function NuevaCotizacionPage() {
               <textarea
                 {...register("internal_comments")}
                 rows={2}
-                className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+                className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
                 placeholder="Notas del equipo..."
               />
             </div>
@@ -270,7 +270,7 @@ export default function NuevaCotizacionPage() {
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-zinc-950 transition-[filter] hover:brightness-110 active:brightness-95 disabled:opacity-50"
+            className="inline-flex items-center rounded-md bg-brand-blue px-4 py-2 text-sm font-medium text-white transition-[filter] hover:brightness-110 active:brightness-95 disabled:opacity-50"
           >
             {saving ? "Guardando..." : "Guardar borrador"}
           </button>

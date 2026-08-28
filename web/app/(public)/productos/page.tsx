@@ -13,7 +13,7 @@ export default async function ProductosPage() {
     <div className="py-16 px-6">
       <div className="max-w-7xl mx-auto space-y-10">
         <div className="space-y-3">
-          <p className="text-brand-green text-sm font-semibold tracking-widest uppercase">
+          <p className="text-brand-blue text-sm font-semibold tracking-widest uppercase">
             Catálogo
           </p>
           <h1 className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-white">

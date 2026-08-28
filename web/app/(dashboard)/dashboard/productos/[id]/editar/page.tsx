@@ -69,7 +69,7 @@ function InputField({
 }
 
 const inputClass =
-  "w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-green/25 focus:border-brand-green transition-all duration-150";
+  "w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-blue/25 focus:border-brand-blue transition-all duration-150";
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
@@ -177,7 +177,7 @@ export default function EditarProductoPage() {
     return (
       <div className="space-y-4">
         <p className="text-sm text-red-500 dark:text-red-400">Producto no encontrado.</p>
-        <Link href="/dashboard/productos" className="text-sm text-brand-green hover:underline">
+        <Link href="/dashboard/productos" className="text-sm text-brand-blue hover:underline">
           Volver a productos
         </Link>
       </div>
@@ -262,7 +262,7 @@ export default function EditarProductoPage() {
             <label className="flex items-center gap-3 cursor-pointer group w-fit">
               <input
                 type="checkbox"
-                className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 accent-brand-green"
+                className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 accent-brand-blue"
                 {...register("made_to_order")}
               />
               <span className="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
@@ -273,7 +273,7 @@ export default function EditarProductoPage() {
             <label className="flex items-center gap-3 cursor-pointer group w-fit">
               <input
                 type="checkbox"
-                className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 accent-brand-green"
+                className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 accent-brand-blue"
                 {...register("is_active")}
               />
               <span className="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
@@ -292,7 +292,7 @@ export default function EditarProductoPage() {
             <button
               type="button"
               onClick={() => append({ sku: "", name: "", price: "", stock_qty: 0 })}
-              className="flex items-center gap-1.5 text-xs font-medium text-brand-green hover:opacity-80 transition-opacity cursor-pointer"
+              className="flex items-center gap-1.5 text-xs font-medium text-brand-blue hover:opacity-80 transition-opacity cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               Agregar variante
@@ -377,7 +377,7 @@ export default function EditarProductoPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex items-center gap-2 bg-brand-green text-zinc-950 text-sm font-medium px-6 py-2 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-50 cursor-pointer"
+            className="flex items-center gap-2 bg-brand-blue text-white text-sm font-medium px-6 py-2 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-50 cursor-pointer"
           >
             {isSubmitting ? "Guardando..." : "Guardar cambios"}
           </button>

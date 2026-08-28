@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Upload, X } from "lucide-react";
+import Link from "next/link";
+import { CircleHelp, Download, Upload, X } from "lucide-react";
 import { api, type ImportReport } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
@@ -53,6 +54,14 @@ export function ProductCsvPanel({ onImported }: { onImported: (report: ImportRep
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+      <Link
+        href="/dashboard/productos/ayuda-csv"
+        title="Ayuda: importación CSV"
+        className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500 text-sm font-medium px-2 py-2 rounded-lg transition-colors duration-150 hover:text-brand-blue hover:bg-brand-blue/10 cursor-pointer"
+      >
+        <CircleHelp className="w-4 h-4" />
+      </Link>
+
       <button
         type="button"
         onClick={handleExport}
@@ -84,7 +93,7 @@ export function ProductCsvPanel({ onImported }: { onImported: (report: ImportRep
           type="checkbox"
           checked={dryRun}
           onChange={(e) => setDryRun(e.target.checked)}
-          className="rounded border-zinc-300 dark:border-zinc-700 text-brand-green focus:ring-brand-green/25"
+          className="rounded border-zinc-300 dark:border-zinc-700 text-brand-blue focus:ring-brand-blue/25"
         />
         Simulación (no guarda)
       </label>
@@ -94,7 +103,7 @@ export function ProductCsvPanel({ onImported }: { onImported: (report: ImportRep
           type="checkbox"
           checked={semicolon}
           onChange={(e) => setSemicolon(e.target.checked)}
-          className="rounded border-zinc-300 dark:border-zinc-700 text-brand-green focus:ring-brand-green/25"
+          className="rounded border-zinc-300 dark:border-zinc-700 text-brand-blue focus:ring-brand-blue/25"
         />
         Exportar con &quot;;&quot; (Excel es-AR)
       </label>

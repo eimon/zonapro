@@ -98,7 +98,7 @@ function ProductCard({
           <Link
             href={`/dashboard/productos/${product.id}/editar`}
             title="Editar"
-            className="p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-brand-green hover:bg-brand-green/10 transition-colors duration-150 cursor-pointer"
+            className="p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-brand-blue hover:bg-brand-blue/10 transition-colors duration-150 cursor-pointer"
           >
             <Pencil className="w-4 h-4" />
           </Link>
@@ -219,7 +219,7 @@ export default function ProductosPage() {
           <ProductCsvPanel onImported={handleImported} />
           <Link
             href="/dashboard/productos/nuevo"
-            className="flex items-center gap-2 bg-brand-green text-zinc-950 text-sm font-medium px-4 py-2 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
+            className="flex items-center gap-2 bg-brand-blue text-white text-sm font-medium px-4 py-2 rounded-lg transition-[filter] duration-150 hover:brightness-110 active:brightness-95"
           >
             <Plus className="w-4 h-4" />
             Nuevo producto
@@ -294,7 +294,7 @@ export default function ProductosPage() {
           placeholder="Buscar por nombre o slug…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-green/25 focus:border-brand-green transition-all duration-150"
+          className="w-full pl-9 pr-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-blue/25 focus:border-brand-blue transition-all duration-150"
         />
       </div>
 
@@ -411,7 +411,7 @@ export default function ProductosPage() {
                         <Link
                           href={`/dashboard/productos/${product.id}/editar`}
                           title="Editar"
-                          className="p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-brand-green hover:bg-brand-green/10 transition-colors duration-150 cursor-pointer"
+                          className="p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-brand-blue hover:bg-brand-blue/10 transition-colors duration-150 cursor-pointer"
                         >
                           <Pencil className="w-4 h-4" />
                         </Link>
