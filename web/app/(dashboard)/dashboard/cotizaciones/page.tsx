@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Pencil } from "lucide-react";
+import { Pencil, Search } from "lucide-react";
 import { api, Quote, QuoteStatus } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
@@ -115,6 +115,18 @@ export default function CotizacionesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<{ id: string; format: ExportFormat } | null>(null);
+  const [search, setSearch] = useState("");
+
+  const filteredQuotes = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return quotes;
+    return quotes.filter(
+      (quote) =>
+        quote.title.toLowerCase().includes(query) ||
+        quote.client_name.toLowerCase().includes(query) ||
+        quote.client_email.toLowerCase().includes(query)
+    );
+  }, [quotes, search]);
 
   useEffect(() => {
     const token = getToken();
@@ -170,6 +182,21 @@ export default function CotizacionesPage() {
         <p className="text-sm text-zinc-500">No hay cotizaciones todavía.</p>
       ) : (
         <>
+          <div className="relative max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por título, cliente o email..."
+              className="w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 pl-9 pr-3 py-2 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/50"
+            />
+          </div>
+
+          {filteredQuotes.length === 0 ? (
+            <p className="text-sm text-zinc-500">No se encontraron cotizaciones para &quot;{search}&quot;.</p>
+          ) : (
+            <>
           {/* Table (desktop) */}
           <div className="hidden md:block overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm">
             <table className="min-w-[820px] w-full divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -196,7 +223,7 @@ export default function CotizacionesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                {quotes.map((quote) => (
+                {filteredQuotes.map((quote) => (
                   <tr key={quote.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
                     <td className="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-white">
                       {quote.title}
@@ -250,7 +277,7 @@ export default function CotizacionesPage() {
 
           {/* Cards (mobile) */}
           <div className="md:hidden space-y-3">
-            {quotes.map((quote) => (
+            {filteredQuotes.map((quote) => (
               <QuoteCard
                 key={quote.id}
                 quote={quote}
@@ -259,6 +286,8 @@ export default function CotizacionesPage() {
               />
             ))}
           </div>
+            </>
+          )}
         </>
       )}
     </div>
