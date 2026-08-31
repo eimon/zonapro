@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Pencil, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Search } from "lucide-react";
 import { api, Quote, QuoteStatus } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+
+const PAGE_SIZE_OPTIONS = [20, 30, 50] as const;
 
 const STATUS_LABELS: Record<QuoteStatus, string> = {
   borrador: "Borrador",
@@ -116,6 +118,8 @@ export default function CotizacionesPage() {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<{ id: string; format: ExportFormat } | null>(null);
   const [search, setSearch] = useState("");
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(20);
+  const [page, setPage] = useState(1);
 
   const filteredQuotes = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -127,6 +131,20 @@ export default function CotizacionesPage() {
         quote.client_email.toLowerCase().includes(query)
     );
   }, [quotes, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredQuotes.length / pageSize));
+
+  const [paginationKey, setPaginationKey] = useState({ search, pageSize });
+  if (paginationKey.search !== search || paginationKey.pageSize !== pageSize) {
+    setPaginationKey({ search, pageSize });
+    setPage(1);
+  }
+
+  const currentPage = Math.min(page, totalPages);
+  const paginatedQuotes = useMemo(
+    () => filteredQuotes.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredQuotes, currentPage, pageSize]
+  );
 
   useEffect(() => {
     const token = getToken();
@@ -223,7 +241,7 @@ export default function CotizacionesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                {filteredQuotes.map((quote) => (
+                {paginatedQuotes.map((quote) => (
                   <tr key={quote.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
                     <td className="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-white">
                       {quote.title}
@@ -277,7 +295,7 @@ export default function CotizacionesPage() {
 
           {/* Cards (mobile) */}
           <div className="md:hidden space-y-3">
-            {filteredQuotes.map((quote) => (
+            {paginatedQuotes.map((quote) => (
               <QuoteCard
                 key={quote.id}
                 quote={quote}
@@ -285,6 +303,49 @@ export default function CotizacionesPage() {
                 onExport={handleExport}
               />
             ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+              <span>Mostrar</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value) as (typeof PAGE_SIZE_OPTIONS)[number])}
+                className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-brand-blue/50"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+              <span>por página</span>
+            </div>
+
+            <div className="flex items-center gap-3 text-sm">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:hover:bg-white dark:disabled:hover:bg-zinc-900 transition-colors"
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-zinc-500 dark:text-zinc-400">
+                Página {currentPage} de {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:hover:bg-white dark:disabled:hover:bg-zinc-900 transition-colors"
+                aria-label="Página siguiente"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
             </>
           )}
