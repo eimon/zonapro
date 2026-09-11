@@ -45,6 +45,7 @@ export type PackageComplexity = "basico" | "medio" | "avanzado";
 export type ConsultationType = "product" | "package" | "free_form";
 export type ConsultationStatus = "pendiente" | "en_proceso" | "cerrada";
 export type QuoteStatus = "borrador" | "enviada" | "aprobada" | "rechazada" | "vencida";
+export type QuoteType = "productos" | "servicios";
 export type QuoteItemKind = "product" | "service";
 export type InstallationCostType = "fixed" | "percentage";
 export type IvaRate = "0" | "10.5" | "21";
@@ -186,6 +187,7 @@ export type QuoteItem = {
 export type Quote = {
   id: string;
   title: string;
+  quote_type: QuoteType;
   client_name: string;
   client_email: string;
   client_phone: string | null;
@@ -368,7 +370,8 @@ export const api = {
   },
 
   quotes: {
-    list: (token: string) => request<Quote[]>("/api/v1/quotes/", {}, token),
+    list: (token: string, quoteType: QuoteType = "productos") =>
+      request<Quote[]>(`/api/v1/quotes/?quote_type=${quoteType}`, {}, token),
     get: (id: string, token: string) => request<Quote>(`/api/v1/quotes/${id}`, {}, token),
     create: (data: unknown, token: string) =>
       request<Quote>("/api/v1/quotes/", { method: "POST", body: JSON.stringify(data) }, token),
