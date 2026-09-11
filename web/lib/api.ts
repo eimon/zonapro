@@ -122,6 +122,36 @@ export type ImportReport = {
   errors: ImportRowError[];
 };
 
+export type SupplyVariant = {
+  id: string;
+  supply_id: string;
+  sku: string;
+  name: string;
+  attributes: Record<string, unknown> | null;
+  price: string; // net
+  stock_qty: number;
+  final_price: string; // net + IVA, computed from the parent supply's iva_rate
+};
+
+export type Supply = {
+  id: string;
+  name: string;
+  description: string | null;
+  iva_rate: IvaRate;
+  is_active: boolean;
+  variants: SupplyVariant[];
+};
+
+export type SupplyImportReport = {
+  dry_run: boolean;
+  rows_processed: number;
+  supplies_created: number;
+  supplies_updated: number;
+  variants_created: number;
+  variants_updated: number;
+  errors: ImportRowError[];
+};
+
 export type PackageOption = {
   id: string;
   group_id: string;
@@ -342,6 +372,56 @@ export const api = {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Error al exportar el catálogo");
+      const blob = await res.blob();
+      return URL.createObjectURL(blob);
+    },
+  },
+
+  supplies: {
+    // Unlike api.products.*, every /api/v1/supplies/* route is auth-gated
+    // (Permission.PRODUCT_MANAGE) — list/get take a token by construction.
+    list: (token: string, params?: { skip?: number; limit?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.skip !== undefined) qs.set("skip", String(params.skip));
+      if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+      const query = qs.toString() ? `?${qs.toString()}` : "";
+      return request<Supply[]>(`/api/v1/supplies/${query}`, {}, token);
+    },
+    get: (id: string, token: string) => request<Supply>(`/api/v1/supplies/${id}`, {}, token),
+    create: (data: unknown, token: string) =>
+      request<Supply>("/api/v1/supplies/", { method: "POST", body: JSON.stringify(data) }, token),
+    update: (id: string, data: unknown, token: string) =>
+      request<Supply>(`/api/v1/supplies/${id}`, { method: "PATCH", body: JSON.stringify(data) }, token),
+    remove: (id: string, token: string) =>
+      request<void>(`/api/v1/supplies/${id}`, { method: "DELETE" }, token),
+    variants: {
+      create: (supplyId: string, data: unknown, token: string) =>
+        request<SupplyVariant>(`/api/v1/supplies/${supplyId}/variants`, { method: "POST", body: JSON.stringify(data) }, token),
+      update: (variantId: string, data: unknown, token: string) =>
+        request<SupplyVariant>(`/api/v1/supplies/variants/${variantId}`, { method: "PATCH", body: JSON.stringify(data) }, token),
+      remove: (variantId: string, token: string) =>
+        request<void>(`/api/v1/supplies/variants/${variantId}`, { method: "DELETE" }, token),
+    },
+    importCsv: async (file: File, dryRun: boolean, token: string): Promise<SupplyImportReport> => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const qs = dryRun ? "?dry_run=true" : "?dry_run=false";
+      const res = await fetch(`${API_URL}/api/v1/supplies/import${qs}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new ApiError(body.detail ?? "Error al importar el CSV", res.status);
+      }
+      return res.json();
+    },
+    exportCsv: async (token: string, delimiter: "," | ";" = ","): Promise<string> => {
+      const res = await fetch(`${API_URL}/api/v1/supplies/export?delimiter=${encodeURIComponent(delimiter)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Error al exportar el catálogo de insumos");
       const blob = await res.blob();
       return URL.createObjectURL(blob);
     },
