@@ -18,6 +18,7 @@ import {
   Store,
   User,
   Users,
+  Wrench,
   X,
 } from "lucide-react";
 import { LogoMark } from "@/components/logo";
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/paquetes", icon: Layers, label: "Paquetes" },
   { href: "/dashboard/consultas", icon: MessageSquare, label: "Consultas" },
   { href: "/dashboard/cotizaciones", icon: FileText, label: "Cotizaciones" },
+  { href: "/dashboard/cotizaciones-servicios", icon: Wrench, label: "Cotizar Servicios" },
   { href: "/dashboard/ordenes", icon: ShoppingCart, label: "Órdenes" },
 ];
 

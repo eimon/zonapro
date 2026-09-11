@@ -46,7 +46,7 @@ export type ConsultationType = "product" | "package" | "free_form";
 export type ConsultationStatus = "pendiente" | "en_proceso" | "cerrada";
 export type QuoteStatus = "borrador" | "enviada" | "aprobada" | "rechazada" | "vencida";
 export type QuoteType = "productos" | "servicios";
-export type QuoteItemKind = "product" | "service";
+export type QuoteItemKind = "product" | "supply" | "service";
 export type InstallationCostType = "fixed" | "percentage";
 export type IvaRate = "0" | "10.5" | "21";
 
@@ -205,6 +205,9 @@ export type QuoteItem = {
   product_variant_id: string | null;
   product_name_snapshot: string | null;
   product_sku_snapshot: string | null;
+  supply_variant_id: string | null;
+  supply_name_snapshot: string | null;
+  supply_sku_snapshot: string | null;
   service_description: string | null;
   hours: string | null;
   hourly_rate_snapshot: string | null;
