@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Any
 from pydantic import BaseModel, EmailStr, model_validator
-from models.enums import QuoteItemKind, QuoteStatus, InstallationCostType
+from models.enums import QuoteItemKind, QuoteStatus, QuoteType, InstallationCostType
 
 
 class QuoteItemCreate(BaseModel):
@@ -41,6 +41,10 @@ class QuoteItemResponse(BaseModel):
 
 
 class QuoteCreate(BaseModel):
+    # Set once at creation, determined by which flow is invoked (productos
+    # pages omit this and get the default; servicios pages send it
+    # explicitly). Deliberately absent from QuoteUpdate — see below.
+    quote_type: QuoteType = QuoteType.productos
     title: str
     client_name: str
     client_email: EmailStr
@@ -59,6 +63,10 @@ class QuoteCreate(BaseModel):
 
 
 class QuoteUpdate(BaseModel):
+    # quote_type is deliberately NOT a field here — it is immutable after
+    # creation. update_data = model_dump(exclude_unset=True) can never carry
+    # it into repo.update_quote(**update_data), so this is a structural
+    # guarantee rather than a runtime guard.
     title: Optional[str] = None
     client_name: Optional[str] = None
     client_email: Optional[EmailStr] = None
@@ -77,6 +85,7 @@ class QuoteUpdate(BaseModel):
 # CLIENT response — no internal fields
 class QuoteClientResponse(BaseModel):
     id: uuid.UUID
+    quote_type: QuoteType
     title: str
     client_name: str
     client_email: str

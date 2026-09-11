@@ -3,6 +3,7 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from models.enums import QuoteType
 from models.quote import Quote, QuoteItem
 from repositories.base import BaseRepository
 
@@ -24,19 +25,27 @@ class QuoteRepository(BaseRepository[Quote]):
         )
         return result.scalars().first()
 
-    async def get_all_for_user(self, user_id: uuid.UUID) -> list[Quote]:
+    async def get_all_for_user(
+        self, user_id: uuid.UUID, quote_type: QuoteType = QuoteType.productos
+    ) -> list[Quote]:
         result = await self.db.execute(
             select(Quote)
-            .where(Quote.created_by_id == user_id, Quote.deleted_at.is_(None))
+            .where(
+                Quote.created_by_id == user_id,
+                Quote.deleted_at.is_(None),
+                Quote.quote_type == quote_type,
+            )
             .options(selectinload(Quote.items), selectinload(Quote.updated_by))
             .order_by(Quote.created_at.desc())
         )
         return list(result.scalars().all())
 
-    async def get_all_ordered(self) -> list[Quote]:
+    async def get_all_ordered(
+        self, quote_type: QuoteType = QuoteType.productos
+    ) -> list[Quote]:
         result = await self.db.execute(
             select(Quote)
-            .where(Quote.deleted_at.is_(None))
+            .where(Quote.deleted_at.is_(None), Quote.quote_type == quote_type)
             .options(selectinload(Quote.items), selectinload(Quote.updated_by))
             .order_by(Quote.created_at.desc())
         )
@@ -48,6 +57,7 @@ class QuoteRepository(BaseRepository[Quote]):
         client_name: str,
         client_email: str,
         created_by_id: uuid.UUID,
+        quote_type: QuoteType = QuoteType.productos,
         client_phone: str | None = None,
         validity_days: int = 30,
         notes: str | None = None,
@@ -60,6 +70,7 @@ class QuoteRepository(BaseRepository[Quote]):
         internal_comments: str | None = None,
     ) -> Quote:
         obj = Quote(
+            quote_type=quote_type,
             title=title,
             client_name=client_name,
             client_email=client_email,

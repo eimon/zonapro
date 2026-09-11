@@ -6,11 +6,20 @@ from sqlalchemy.types import Numeric
 from sqlalchemy import Enum as SAEnum
 from core.database import Base
 from models.base import UUIDMixin, TimestampMixin, SoftDeleteMixin
-from models.enums import QuoteStatus, QuoteItemKind, InstallationCostType
+from models.enums import QuoteStatus, QuoteType, QuoteItemKind, InstallationCostType
 
 
 class Quote(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "quotes"
+
+    # Discriminates the two structurally separate quote flows (productos vs.
+    # servicios). Set exactly once at creation, never present in QuoteUpdate.
+    quote_type = Column(
+        SAEnum(QuoteType),
+        nullable=False,
+        default=QuoteType.productos,
+        server_default="productos",
+    )
 
     # Client-visible fields
     title = Column(String(300), nullable=False)

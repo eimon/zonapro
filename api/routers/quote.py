@@ -11,6 +11,7 @@ from core.database import get_db
 from core.pdf import generate_quote_jpg, generate_quote_pdf
 from core.roles import Permission
 from dependencies.auth import has_role
+from models.enums import QuoteType
 from models.user import User
 from schemas.quote import (
     QuoteCreate,
@@ -30,10 +31,11 @@ def _build_response(quote) -> dict:
 
 @router.get("/", response_model=list[QuoteInternalResponse])
 async def list_quotes(
+    quote_type: QuoteType = QuoteType.productos,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(has_role(Permission.QUOTE_VIEW_OWN)),
 ):
-    return await QuoteService(db).list_for_user(current_user)
+    return await QuoteService(db).list_for_user(current_user, quote_type)
 
 
 @router.post("/", response_model=QuoteInternalResponse, status_code=201)

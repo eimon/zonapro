@@ -254,12 +254,15 @@
       {% if logo_base64 %}
         <img src="data:image/png;base64,{{ logo_base64 }}" alt="{{ company_name }}" style="height:40px; margin-bottom:6px;" />
       {% endif %}
-      <div class="company-tagline">{{ company_tagline }}</div>
+      {% if company_tagline %}
+        <div class="company-tagline">{{ company_tagline }}</div>
+      {% endif %}
     </div>
     <div class="company-contact">
       {{ company_email }}<br />
       {% for phone in company_phones %}{{ phone }}<br />{% endfor %}
       {{ company_address }}
+      {% if company_cuit %}<br />CUIT: {{ company_cuit }}{% endif %}
     </div>
   </div>
 
@@ -399,7 +402,7 @@
       {% if logo_base64 %}
         <img src="data:image/png;base64,{{ logo_base64 }}" alt="{{ company_name }}" style="height:22px; margin-bottom:4px;" />
       {% endif %}
-      <div>{{ company_tagline }}</div>
+      {% if company_tagline %}<div>{{ company_tagline }}</div>{% endif %}
       <div>{{ company_address }}</div>
     </div>
     <div class="footer-right">

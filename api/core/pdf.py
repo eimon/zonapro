@@ -8,15 +8,7 @@ from jinja2 import Environment, FileSystemLoader
 from PIL import Image
 from weasyprint import HTML
 
-from core.branding import (
-    ACCENT_COLOR,
-    COMPANY_ADDRESS,
-    COMPANY_EMAIL,
-    COMPANY_NAME,
-    COMPANY_PHONES,
-    COMPANY_TAGLINE,
-    LOGO_BASE64,
-)
+from core.branding import resolve_branding
 from core.pricing import (
     installation_cost_amount,
     item_iva_amount,
@@ -41,6 +33,7 @@ def generate_quote_pdf(quote: Quote) -> bytes:
     env.filters["ars"] = format_ars
     template = env.get_template("quote_pdf.html")
 
+    brand = resolve_branding(quote.quote_type)
     subtotal = items_subtotal(quote)
     installation_amount = installation_cost_amount(quote)
     total = quote_total(quote)
@@ -67,13 +60,14 @@ def generate_quote_pdf(quote: Quote) -> bytes:
         contempla_iva=quote.contempla_iva,
         iva_amount=quote.iva_amount,
         validity_date=validity_date,
-        company_name=COMPANY_NAME,
-        company_tagline=COMPANY_TAGLINE,
-        company_email=COMPANY_EMAIL,
-        company_phones=COMPANY_PHONES,
-        company_address=COMPANY_ADDRESS,
-        accent_color=ACCENT_COLOR,
-        logo_base64=LOGO_BASE64,
+        company_name=brand.company_name,
+        company_tagline=brand.tagline,
+        company_email=brand.email,
+        company_phones=brand.phones,
+        company_address=brand.address,
+        company_cuit=brand.cuit,
+        accent_color=brand.accent_color,
+        logo_base64=brand.logo_base64,
     )
 
     return HTML(string=html_content).write_pdf()
