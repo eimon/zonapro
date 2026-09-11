@@ -21,6 +21,7 @@ class ConsultationStatus(str, Enum):
 
 class QuoteItemKind(str, Enum):
     product = "product"
+    supply = "supply"
     service = "service"
 
 

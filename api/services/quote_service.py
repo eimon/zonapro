@@ -5,6 +5,7 @@ from core.pricing import quote_total, installation_cost_amount, items_iva_total,
 from repositories.app_setting_repository import AppSettingRepository
 from repositories.quote_repository import QuoteRepository
 from repositories.product_repository import ProductVariantRepository
+from repositories.supply_repository import SupplyVariantRepository
 from schemas.quote import QuoteCreate, QuoteUpdate, QuoteItemCreate
 from models.quote import Quote, QuoteItem
 from models.user import User
@@ -24,11 +25,12 @@ VALID_TRANSITIONS: dict[QuoteStatus, list[QuoteStatus]] = {
 # VALID_TRANSITIONS idiom above.
 ALLOWED_ITEM_KINDS: dict[QuoteType, frozenset[QuoteItemKind]] = {
     QuoteType.productos: frozenset({QuoteItemKind.product, QuoteItemKind.service}),
-    QuoteType.servicios: frozenset({QuoteItemKind.service}),
+    QuoteType.servicios: frozenset({QuoteItemKind.supply, QuoteItemKind.service}),
 }
 
 _KIND_LABELS = {
     QuoteItemKind.product: "productos",
+    QuoteItemKind.supply: "insumos",
     QuoteItemKind.service: "conceptos manuales",
 }
 
@@ -80,6 +82,7 @@ class QuoteService:
         self.repo = QuoteRepository(db)
         self.setting_repo = AppSettingRepository(db)
         self.variant_repo = ProductVariantRepository(db)
+        self.supply_variant_repo = SupplyVariantRepository(db)
 
     async def get_hourly_rate(self) -> Decimal:
         val = await self.setting_repo.get_value("hourly_rate")
@@ -135,6 +138,8 @@ class QuoteService:
 
         product_name_snapshot = None
         product_sku_snapshot = None
+        supply_name_snapshot = None
+        supply_sku_snapshot = None
         hourly_rate_snapshot = None
         iva_rate = Decimal("0")
 
@@ -148,9 +153,25 @@ class QuoteService:
                 if variant.product:
                     iva_rate = Decimal(variant.product.iva_rate.value)
 
+        if item_data.kind == QuoteItemKind.supply:
+            supply_variant = (
+                await self.supply_variant_repo.get_with_supply(item_data.supply_variant_id)
+                if item_data.supply_variant_id
+                else None
+            )
+            if supply_variant is None:
+                raise NotFoundException("Insumo no encontrado")
+            supply_name_snapshot = f"{supply_variant.supply.name} — {supply_variant.name}"
+            supply_sku_snapshot = supply_variant.sku
+            # iva_rate is always server-derived from the supply — the client
+            # value is ignored (mirrors kind=product's rule, D4). unit_price
+            # stays client-supplied, same as kind=product.
+            iva_rate = Decimal(supply_variant.supply.iva_rate.value)
+
         if item_data.kind == QuoteItemKind.service:
             hourly_rate_snapshot = hourly_rate
-            # Client-supplied only for services; never trusted for products.
+            # Client-supplied only for services; never trusted for products
+            # or supplies.
             iva_rate = item_data.iva_rate if item_data.iva_rate is not None else Decimal("21")
 
         subtotal = item_data.unit_price * item_data.quantity
@@ -162,6 +183,9 @@ class QuoteService:
             product_variant_id=item_data.product_variant_id,
             product_name_snapshot=product_name_snapshot,
             product_sku_snapshot=product_sku_snapshot,
+            supply_variant_id=item_data.supply_variant_id,
+            supply_name_snapshot=supply_name_snapshot,
+            supply_sku_snapshot=supply_sku_snapshot,
             service_description=item_data.service_description,
             hours=item_data.hours,
             hourly_rate_snapshot=hourly_rate_snapshot,

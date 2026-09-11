@@ -103,6 +103,15 @@ class QuoteItem(UUIDMixin, TimestampMixin, Base):
     product_name_snapshot = Column(String(300), nullable=True)
     product_sku_snapshot = Column(String(100), nullable=True)
 
+    # For kind=supply
+    supply_variant_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("supply_variants.id"),
+        nullable=True,
+    )
+    supply_name_snapshot = Column(String(300), nullable=True)
+    supply_sku_snapshot = Column(String(100), nullable=True)
+
     # For kind=service
     service_description = Column(Text, nullable=True)
     hours = Column(Numeric(8, 2), nullable=True)
@@ -117,3 +126,4 @@ class QuoteItem(UUIDMixin, TimestampMixin, Base):
     # Relationships
     quote = relationship("Quote", back_populates="items")
     variant = relationship("ProductVariant", foreign_keys=[product_variant_id])
+    supply_variant = relationship("SupplyVariant", foreign_keys=[supply_variant_id])

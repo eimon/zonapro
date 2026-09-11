@@ -338,6 +338,13 @@
               {% if item.product_sku_snapshot %}
                 <div class="item-meta">SKU: {{ item.product_sku_snapshot }}</div>
               {% endif %}
+            {% elif item.kind.value == "supply" %}
+              <div class="item-description">
+                {{ item.supply_name_snapshot or "Insumo" }}
+              </div>
+              {% if item.supply_sku_snapshot %}
+                <div class="item-meta">SKU: {{ item.supply_sku_snapshot }}</div>
+              {% endif %}
             {% else %}
               <div class="item-description">
                 {{ item.service_description or "Servicio" }}

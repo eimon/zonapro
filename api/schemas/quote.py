@@ -11,14 +11,17 @@ class QuoteItemCreate(BaseModel):
     display_order: int = 0
     # product kind
     product_variant_id: Optional[uuid.UUID] = None
+    # supply kind
+    supply_variant_id: Optional[uuid.UUID] = None
     # service kind
     service_description: Optional[str] = None
     hours: Optional[Decimal] = None
     # common
     quantity: int = 1
     unit_price: Decimal
-    # Only honored for kind=service; ignored server-side for kind=product,
-    # where it's always derived from the product's own iva_rate.
+    # Only honored for kind=service; ignored server-side for kind=product and
+    # kind=supply, where it's always derived from the product's/supply's own
+    # iva_rate.
     iva_rate: Optional[Decimal] = None
 
 
@@ -29,6 +32,9 @@ class QuoteItemResponse(BaseModel):
     product_variant_id: Optional[uuid.UUID]
     product_name_snapshot: Optional[str]
     product_sku_snapshot: Optional[str]
+    supply_variant_id: Optional[uuid.UUID]
+    supply_name_snapshot: Optional[str]
+    supply_sku_snapshot: Optional[str]
     service_description: Optional[str]
     hours: Optional[Decimal]
     hourly_rate_snapshot: Optional[Decimal]
