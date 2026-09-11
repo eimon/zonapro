@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from core.config import settings
 import models  # noqa: F401
-from routers import users, auth, category, product, package, consultation, quote
+from routers import users, auth, category, product, supply, package, consultation, quote
 from routers import settings as settings_router
 from exceptions.handlers import register_exception_handlers
 import logging
@@ -32,6 +32,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(category.router)
 app.include_router(product.router)
+app.include_router(supply.router)
 app.include_router(package.router)
 app.include_router(consultation.router)
 app.include_router(quote.router)
