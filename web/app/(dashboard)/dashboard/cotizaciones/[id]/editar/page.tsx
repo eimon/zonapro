@@ -3,26 +3,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api, type InstallationCostType, type Product, type Quote } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { QuoteItemsEditor, type QuoteItemDraft } from "@/components/quote-items-editor";
+import { quoteFormSchema, type QuoteFormValues } from "@/lib/quote-form";
+import { QuoteClientFields, QuoteInternalFields } from "@/components/quote-form-fields";
 
-const schema = z.object({
-  title: z.string().min(1, "El título es obligatorio"),
-  client_name: z.string().min(1, "El nombre del cliente es obligatorio"),
-  client_email: z.string().email("Email inválido"),
-  client_phone: z.string().optional(),
-  validity_days: z.number().int().min(1, "Mínimo 1 día"),
-  notes: z.string().optional(),
-  cost_notes: z.string().optional(),
-  margin_notes: z.string().optional(),
-  internal_comments: z.string().optional(),
-  contempla_iva: z.boolean(),
-});
-
-type FormData = z.infer<typeof schema>;
+type FormData = QuoteFormValues;
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("es-AR", { dateStyle: "medium", timeStyle: "short" });
@@ -61,7 +49,7 @@ export default function EditarCotizacionPage() {
     control,
     reset,
     formState: { errors },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  } = useForm<FormData>({ resolver: zodResolver(quoteFormSchema) });
 
   const contemplaIva = useWatch({ control, name: "contempla_iva" });
 
@@ -202,101 +190,7 @@ export default function EditarCotizacionPage() {
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {/* Title */}
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            Título <span className="text-red-500 dark:text-red-400">*</span>
-          </label>
-          <input
-            {...register("title")}
-            className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
-          />
-          {errors.title && (
-            <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.title.message}</p>
-          )}
-        </div>
-
-        {/* Client name */}
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            Nombre del cliente <span className="text-red-500 dark:text-red-400">*</span>
-          </label>
-          <input
-            {...register("client_name")}
-            className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
-          />
-          {errors.client_name && (
-            <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.client_name.message}</p>
-          )}
-        </div>
-
-        {/* Client email + phone */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-              Email <span className="text-red-500 dark:text-red-400">*</span>
-            </label>
-            <input
-              {...register("client_email")}
-              type="email"
-              className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
-            />
-            {errors.client_email && (
-              <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.client_email.message}</p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-              Teléfono
-            </label>
-            <input
-              {...register("client_phone")}
-              className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
-            />
-          </div>
-        </div>
-
-        {/* Validity */}
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            Días de validez
-          </label>
-          <input
-            {...register("validity_days", { valueAsNumber: true })}
-            type="number"
-            min={1}
-            className="block w-32 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
-          />
-          {errors.validity_days && (
-            <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.validity_days.message}</p>
-          )}
-        </div>
-
-        {/* IVA */}
-        <div>
-          <label className="flex items-center gap-3 cursor-pointer group w-fit">
-            <input
-              type="checkbox"
-              className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 accent-brand-blue"
-              {...register("contempla_iva")}
-            />
-            <span className="text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
-              Incluir IVA en esta cotización
-            </span>
-          </label>
-        </div>
-
-        {/* Notes (visible to client) */}
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            Notas para el cliente
-          </label>
-          <textarea
-            {...register("notes")}
-            rows={3}
-            className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
-          />
-        </div>
+        <QuoteClientFields register={register} errors={errors} placeholders={false} />
 
         {/* Products + installation cost */}
         <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
@@ -317,47 +211,7 @@ export default function EditarCotizacionPage() {
           />
         </div>
 
-        {/* Internal separator */}
-        <div className="border-t border-dashed border-zinc-200 dark:border-zinc-800 pt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-4">
-            Campos internos (no visibles para el cliente)
-          </p>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                Notas de costos
-              </label>
-              <textarea
-                {...register("cost_notes")}
-                rows={2}
-                className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                Notas de margen
-              </label>
-              <textarea
-                {...register("margin_notes")}
-                rows={2}
-                className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                Comentarios internos
-              </label>
-              <textarea
-                {...register("internal_comments")}
-                rows={2}
-                className="block w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
-              />
-            </div>
-          </div>
-        </div>
+        <QuoteInternalFields register={register} placeholders={false} />
 
         {/* Actions */}
         <div className="flex items-center gap-3 pt-2">
