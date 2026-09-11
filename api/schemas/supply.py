@@ -60,3 +60,19 @@ class SupplyResponse(BaseModel):
     variants: list[SupplyVariantResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+class ImportRowError(BaseModel):
+    row_number: int | None = None  # None = group-level error
+    identifier: str | None = None  # name or sku
+    message: str
+
+
+class SupplyImportReport(BaseModel):
+    dry_run: bool
+    rows_processed: int
+    supplies_created: int
+    supplies_updated: int
+    variants_created: int
+    variants_updated: int
+    errors: list[ImportRowError] = []

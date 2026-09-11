@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Boxes,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -34,6 +35,7 @@ import { useLogout } from "@/lib/use-logout";
 const NAV_ITEMS = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/dashboard/productos", icon: Package, label: "Productos" },
+  { href: "/dashboard/insumos", icon: Boxes, label: "Insumos" },
   { href: "/dashboard/paquetes", icon: Layers, label: "Paquetes" },
   { href: "/dashboard/consultas", icon: MessageSquare, label: "Consultas" },
   { href: "/dashboard/cotizaciones", icon: FileText, label: "Cotizaciones" },

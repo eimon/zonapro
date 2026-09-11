@@ -1,21 +1,15 @@
-"""Pure CSV contract for product import/export.
+"""Pure CSV contract for supply (insumo) import/export.
 
-No DB access here — this module owns column order, coercion rules, and
-row <-> payload mapping/serialization. `ProductImportService` and
-`ProductExportService` both read it, so the file format can only drift
-in one place.
-
-The generic parsing/writing primitives (RowError, parse_bool/decimal/
-attributes/iva_rate, decode_and_read, _csv_safe, write_csv) live in
-`csv_common.py` and are re-exported here unchanged so existing imports
-(`from services.product_csv import RowError, decode_and_read, ...`) keep
-working — this file only owns the product-specific column contract.
+Mirrors `product_csv.py`'s shape exactly, minus the fields that don't apply
+to supplies (no slug — `name` plays that role per design D1 — no
+category_slug/image_url/made_to_order). Shares primitives with
+`product_csv.py` via `csv_common.py` so the es-AR decimal rules and the
+CSV-formula-injection guard can't drift between the two catalogs.
 """
 import json
 
 from services.csv_common import (
     RowError,
-    _csv_safe,
     decode_and_read as _decode_and_read,
     parse_attributes,
     parse_bool,
@@ -25,14 +19,10 @@ from services.csv_common import (
 )
 
 COLUMNS = (
-    "product_id",
-    "slug",
+    "supply_id",
     "name",
     "description",
-    "category_slug",
     "iva_rate",
-    "image_url",
-    "made_to_order",
     "is_active",
     "variant_id",
     "sku",
@@ -44,14 +34,10 @@ COLUMNS = (
     "final_price",
 )
 
-PRODUCT_COLUMNS = {
+SUPPLY_COLUMNS = {
     "name",
-    "slug",
     "description",
-    "category_slug",
     "iva_rate",
-    "image_url",
-    "made_to_order",
     "is_active",
 }
 VARIANT_COLUMNS = {
@@ -62,22 +48,18 @@ VARIANT_COLUMNS = {
     "price_input_mode",
     "stock_qty",
 }
-REQUIRED_NON_EMPTY = {"name", "slug", "sku", "variant_name", "price"}
+REQUIRED_NON_EMPTY = {"name", "sku", "variant_name", "price"}
 CREATE_ONLY_REQUIRED = {"iva_rate"}
 
 # Columns that clear the field to NULL when the cell is present but empty.
-_NULLABLE_COLUMNS = {"description", "image_url", "category_slug"}
+_NULLABLE_COLUMNS = {"description"}
 # NOT-NULL-with-default columns: an empty cell leaves the field untouched.
-_SKIP_ON_EMPTY_COLUMNS = {"made_to_order", "is_active", "stock_qty", "iva_rate"}
+_SKIP_ON_EMPTY_COLUMNS = {"is_active", "stock_qty", "iva_rate"}
 
-_PRODUCT_FIELD_NAME = {
+_SUPPLY_FIELD_NAME = {
     "name": "name",
-    "slug": "slug",
     "description": "description",
-    "category_slug": "category_slug",
     "iva_rate": "iva_rate",
-    "image_url": "image_url",
-    "made_to_order": "made_to_order",
     "is_active": "is_active",
 }
 _VARIANT_FIELD_NAME = {
@@ -95,22 +77,22 @@ def decode_and_read(raw: bytes) -> tuple:
 
 
 def map_row(row: dict, present: set[str]) -> tuple[dict, dict]:
-    """Map one CSV row into (product_fields, variant_fields) using the
-    file-level partial-column contract (D8): a column absent from `present`
-    is never touched; a required column with an empty cell raises; a
-    nullable column with an empty cell clears to None; a NOT-NULL-with-default
+    """Map one CSV row into (supply_fields, variant_fields) using the
+    file-level partial-column contract: a column absent from `present` is
+    never touched; a required column with an empty cell raises; a nullable
+    column with an empty cell clears to None; a NOT-NULL-with-default
     column with an empty cell is simply omitted (left unchanged)."""
-    product_fields: dict = {}
+    supply_fields: dict = {}
     variant_fields: dict = {}
 
     for col in present:
-        if col not in PRODUCT_COLUMNS and col not in VARIANT_COLUMNS:
-            continue  # resolution-only columns (product_id, variant_id) — read directly by the caller
+        if col not in SUPPLY_COLUMNS and col not in VARIANT_COLUMNS:
+            continue  # resolution-only columns (supply_id, variant_id) — read directly by the caller
 
         raw = (row.get(col) or "").strip()
-        is_product = col in PRODUCT_COLUMNS
-        target = product_fields if is_product else variant_fields
-        field_name = _PRODUCT_FIELD_NAME[col] if is_product else _VARIANT_FIELD_NAME[col]
+        is_supply = col in SUPPLY_COLUMNS
+        target = supply_fields if is_supply else variant_fields
+        field_name = _SUPPLY_FIELD_NAME[col] if is_supply else _VARIANT_FIELD_NAME[col]
 
         if col in REQUIRED_NON_EMPTY and not raw:
             raise RowError(f"'{col}' es obligatorio y no puede estar vacío")
@@ -135,7 +117,7 @@ def map_row(row: dict, present: set[str]) -> tuple[dict, dict]:
 
         if col == "iva_rate":
             target[field_name] = parse_iva_rate(raw)
-        elif col in ("made_to_order", "is_active"):
+        elif col == "is_active":
             target[field_name] = parse_bool(raw)
         elif col == "stock_qty":
             try:
@@ -147,23 +129,18 @@ def map_row(row: dict, present: set[str]) -> tuple[dict, dict]:
         else:
             target[field_name] = raw
 
-    return product_fields, variant_fields
+    return supply_fields, variant_fields
 
 
-def serialize_row(product, variant, final_price) -> list[str]:
-    """Serialize one (product, variant) pair into an export row, in COLUMNS order."""
+def serialize_row(supply, variant, final_price) -> list[str]:
+    """Serialize one (supply, variant) pair into an export row, in COLUMNS order."""
     attrs = variant.attributes or {}
-    category = getattr(product, "category", None)
     return [
-        str(product.id),
-        product.slug,
-        product.name,
-        product.description or "",
-        category.slug if category else "",
-        product.iva_rate.value,
-        product.image_url or "",
-        "true" if product.made_to_order else "false",
-        "true" if product.is_active else "false",
+        str(supply.id),
+        supply.name,
+        supply.description or "",
+        supply.iva_rate.value,
+        "true" if supply.is_active else "false",
         str(variant.id),
         variant.sku,
         variant.name,
