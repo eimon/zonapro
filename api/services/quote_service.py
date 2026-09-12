@@ -5,10 +5,11 @@ from core.pricing import quote_total, installation_cost_amount, items_iva_total,
 from repositories.app_setting_repository import AppSettingRepository
 from repositories.quote_repository import QuoteRepository
 from repositories.product_repository import ProductVariantRepository
+from repositories.supply_repository import SupplyVariantRepository
 from schemas.quote import QuoteCreate, QuoteUpdate, QuoteItemCreate
 from models.quote import Quote, QuoteItem
 from models.user import User
-from models.enums import QuoteItemKind, QuoteStatus, InstallationCostType
+from models.enums import QuoteItemKind, QuoteStatus, QuoteType, InstallationCostType
 from exceptions.general import NotFoundException, ForbiddenException, BadRequestException
 
 # Valid forward transitions only
@@ -19,6 +20,29 @@ VALID_TRANSITIONS: dict[QuoteStatus, list[QuoteStatus]] = {
     QuoteStatus.rechazada: [],
     QuoteStatus.vencida: [],
 }
+
+# Mutual exclusion between the productos and servicios flows, mirroring the
+# VALID_TRANSITIONS idiom above.
+ALLOWED_ITEM_KINDS: dict[QuoteType, frozenset[QuoteItemKind]] = {
+    QuoteType.productos: frozenset({QuoteItemKind.product, QuoteItemKind.service}),
+    QuoteType.servicios: frozenset({QuoteItemKind.supply, QuoteItemKind.service}),
+}
+
+_KIND_LABELS = {
+    QuoteItemKind.product: "productos",
+    QuoteItemKind.supply: "insumos",
+    QuoteItemKind.service: "conceptos manuales",
+}
+
+
+def _assert_item_kind_allowed(quote_type: QuoteType, kind: QuoteItemKind) -> None:
+    # .get(..., frozenset()) is fail-closed: an unrecognized quote_type
+    # allows nothing rather than silently allowing everything.
+    if kind not in ALLOWED_ITEM_KINDS.get(quote_type, frozenset()):
+        raise BadRequestException(
+            f"No se pueden agregar {_KIND_LABELS.get(kind, 'ítems de ese tipo')} "
+            f"a una cotización de {quote_type.value}"
+        )
 
 
 def _add_total(quote: Quote) -> Quote:
@@ -36,9 +60,15 @@ def _add_total(quote: Quote) -> Quote:
     return quote
 
 
-def _validate_installation_cost(cost_type, cost_value: Decimal | None) -> None:
+def _validate_installation_cost(
+    cost_type, cost_value: Decimal | None, quote_type: QuoteType = QuoteType.productos
+) -> None:
     if cost_type is None:
         return
+    if quote_type == QuoteType.servicios:
+        raise BadRequestException(
+            "Las cotizaciones de servicios no llevan costo de instalación"
+        )
     if cost_value is None:
         raise BadRequestException("Debés indicar un valor para el costo de instalación")
     if cost_value < 0:
@@ -52,6 +82,7 @@ class QuoteService:
         self.repo = QuoteRepository(db)
         self.setting_repo = AppSettingRepository(db)
         self.variant_repo = ProductVariantRepository(db)
+        self.supply_variant_repo = SupplyVariantRepository(db)
 
     async def get_hourly_rate(self) -> Decimal:
         val = await self.setting_repo.get_value("hourly_rate")
@@ -63,10 +94,16 @@ class QuoteService:
                 raise ForbiddenException("No autorizado para ver esta cotización")
 
     async def create(self, data: QuoteCreate, created_by_id: uuid.UUID) -> Quote:
-        _validate_installation_cost(data.installation_cost_type, data.installation_cost_value)
+        _validate_installation_cost(
+            data.installation_cost_type, data.installation_cost_value, data.quote_type
+        )
+        # Fail fast on a bad payload before any row is written.
+        for item_data in data.items:
+            _assert_item_kind_allowed(data.quote_type, item_data.kind)
         hourly_rate = await self.get_hourly_rate()
 
         quote = await self.repo.create_quote(
+            quote_type=data.quote_type,
             title=data.title,
             client_name=data.client_name,
             client_email=str(data.client_email),
@@ -84,17 +121,25 @@ class QuoteService:
         )
 
         for item_data in data.items:
-            await self._build_item(quote.id, item_data, hourly_rate)
+            await self._build_item(quote.id, item_data, hourly_rate, data.quote_type)
 
         # Reload with items
         full_quote = await self.repo.get_with_items(quote.id)
         return _add_total(full_quote)
 
     async def _build_item(
-        self, quote_id: uuid.UUID, item_data: QuoteItemCreate, hourly_rate: Decimal
+        self,
+        quote_id: uuid.UUID,
+        item_data: QuoteItemCreate,
+        hourly_rate: Decimal,
+        quote_type: QuoteType,
     ) -> QuoteItem:
+        _assert_item_kind_allowed(quote_type, item_data.kind)
+
         product_name_snapshot = None
         product_sku_snapshot = None
+        supply_name_snapshot = None
+        supply_sku_snapshot = None
         hourly_rate_snapshot = None
         iva_rate = Decimal("0")
 
@@ -108,9 +153,25 @@ class QuoteService:
                 if variant.product:
                     iva_rate = Decimal(variant.product.iva_rate.value)
 
+        if item_data.kind == QuoteItemKind.supply:
+            supply_variant = (
+                await self.supply_variant_repo.get_with_supply(item_data.supply_variant_id)
+                if item_data.supply_variant_id
+                else None
+            )
+            if supply_variant is None:
+                raise NotFoundException("Insumo no encontrado")
+            supply_name_snapshot = f"{supply_variant.supply.name} — {supply_variant.name}"
+            supply_sku_snapshot = supply_variant.sku
+            # iva_rate is always server-derived from the supply — the client
+            # value is ignored (mirrors kind=product's rule, D4). unit_price
+            # stays client-supplied, same as kind=product.
+            iva_rate = Decimal(supply_variant.supply.iva_rate.value)
+
         if item_data.kind == QuoteItemKind.service:
             hourly_rate_snapshot = hourly_rate
-            # Client-supplied only for services; never trusted for products.
+            # Client-supplied only for services; never trusted for products
+            # or supplies.
             iva_rate = item_data.iva_rate if item_data.iva_rate is not None else Decimal("21")
 
         subtotal = item_data.unit_price * item_data.quantity
@@ -122,6 +183,9 @@ class QuoteService:
             product_variant_id=item_data.product_variant_id,
             product_name_snapshot=product_name_snapshot,
             product_sku_snapshot=product_sku_snapshot,
+            supply_variant_id=item_data.supply_variant_id,
+            supply_name_snapshot=supply_name_snapshot,
+            supply_sku_snapshot=supply_sku_snapshot,
             service_description=item_data.service_description,
             hours=item_data.hours,
             hourly_rate_snapshot=hourly_rate_snapshot,
@@ -138,14 +202,16 @@ class QuoteService:
         self._check_ownership(quote, user)
         return _add_total(quote)
 
-    async def list_for_user(self, user: User) -> list[Quote]:
+    async def list_for_user(
+        self, user: User, quote_type: QuoteType = QuoteType.productos
+    ) -> list[Quote]:
         has_view_all = "QUOTE_VIEW_ALL" in (
             p.value if hasattr(p, "value") else p for p in user.permissions
         )
         if has_view_all:
-            quotes = await self.repo.get_all_ordered()
+            quotes = await self.repo.get_all_ordered(quote_type)
         else:
-            quotes = await self.repo.get_all_for_user(user.id)
+            quotes = await self.repo.get_all_for_user(user.id, quote_type)
         for q in quotes:
             _add_total(q)
         return quotes
@@ -167,11 +233,13 @@ class QuoteService:
                     f"No se puede cambiar de '{quote.status.value}' a '{new_status.value}'"
                 )
 
-        # Validate installation cost against the effective (merged) values
+        # Validate installation cost against the effective (merged) values.
+        # quote.quote_type is read from the loaded row, never from the
+        # payload — QuoteUpdate has no such field (D10, immutability).
         if "installation_cost_type" in update_data or "installation_cost_value" in update_data:
             effective_type = update_data.get("installation_cost_type", quote.installation_cost_type)
             effective_value = update_data.get("installation_cost_value", quote.installation_cost_value)
-            _validate_installation_cost(effective_type, effective_value)
+            _validate_installation_cost(effective_type, effective_value, quote.quote_type)
 
         update_data["updated_by_id"] = user.id
         await self.repo.update_quote(quote, **update_data)
@@ -194,7 +262,7 @@ class QuoteService:
         self._check_ownership(quote, user)
 
         hourly_rate = await self.get_hourly_rate()
-        await self._build_item(quote_id, data, hourly_rate)
+        await self._build_item(quote_id, data, hourly_rate, quote.quote_type)
         await self.repo.update_quote(quote, updated_by_id=user.id)
 
         updated = await self.repo.get_with_items(quote_id)

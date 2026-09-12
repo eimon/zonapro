@@ -6,11 +6,20 @@ from sqlalchemy.types import Numeric
 from sqlalchemy import Enum as SAEnum
 from core.database import Base
 from models.base import UUIDMixin, TimestampMixin, SoftDeleteMixin
-from models.enums import QuoteStatus, QuoteItemKind, InstallationCostType
+from models.enums import QuoteStatus, QuoteType, QuoteItemKind, InstallationCostType
 
 
 class Quote(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "quotes"
+
+    # Discriminates the two structurally separate quote flows (productos vs.
+    # servicios). Set exactly once at creation, never present in QuoteUpdate.
+    quote_type = Column(
+        SAEnum(QuoteType),
+        nullable=False,
+        default=QuoteType.productos,
+        server_default="productos",
+    )
 
     # Client-visible fields
     title = Column(String(300), nullable=False)
@@ -94,6 +103,15 @@ class QuoteItem(UUIDMixin, TimestampMixin, Base):
     product_name_snapshot = Column(String(300), nullable=True)
     product_sku_snapshot = Column(String(100), nullable=True)
 
+    # For kind=supply
+    supply_variant_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("supply_variants.id"),
+        nullable=True,
+    )
+    supply_name_snapshot = Column(String(300), nullable=True)
+    supply_sku_snapshot = Column(String(100), nullable=True)
+
     # For kind=service
     service_description = Column(Text, nullable=True)
     hours = Column(Numeric(8, 2), nullable=True)
@@ -108,3 +126,4 @@ class QuoteItem(UUIDMixin, TimestampMixin, Base):
     # Relationships
     quote = relationship("Quote", back_populates="items")
     variant = relationship("ProductVariant", foreign_keys=[product_variant_id])
+    supply_variant = relationship("SupplyVariant", foreign_keys=[supply_variant_id])

@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Boxes,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -17,6 +18,7 @@ import {
   Store,
   User,
   Users,
+  Wrench,
   X,
 } from "lucide-react";
 import { LogoMark } from "@/components/logo";
@@ -34,9 +36,11 @@ import { useLogout } from "@/lib/use-logout";
 const NAV_ITEMS = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/dashboard/productos", icon: Package, label: "Productos" },
+  { href: "/dashboard/insumos", icon: Boxes, label: "Insumos" },
   { href: "/dashboard/paquetes", icon: Layers, label: "Paquetes" },
   { href: "/dashboard/consultas", icon: MessageSquare, label: "Consultas" },
   { href: "/dashboard/cotizaciones", icon: FileText, label: "Cotizaciones" },
+  { href: "/dashboard/cotizaciones-servicios", icon: Wrench, label: "Cotizar Servicios" },
   { href: "/dashboard/ordenes", icon: ShoppingCart, label: "Órdenes" },
 ];
 

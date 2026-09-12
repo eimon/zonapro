@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Any
 from pydantic import BaseModel, EmailStr, model_validator
-from models.enums import QuoteItemKind, QuoteStatus, InstallationCostType
+from models.enums import QuoteItemKind, QuoteStatus, QuoteType, InstallationCostType
 
 
 class QuoteItemCreate(BaseModel):
@@ -11,14 +11,17 @@ class QuoteItemCreate(BaseModel):
     display_order: int = 0
     # product kind
     product_variant_id: Optional[uuid.UUID] = None
+    # supply kind
+    supply_variant_id: Optional[uuid.UUID] = None
     # service kind
     service_description: Optional[str] = None
     hours: Optional[Decimal] = None
     # common
     quantity: int = 1
     unit_price: Decimal
-    # Only honored for kind=service; ignored server-side for kind=product,
-    # where it's always derived from the product's own iva_rate.
+    # Only honored for kind=service; ignored server-side for kind=product and
+    # kind=supply, where it's always derived from the product's/supply's own
+    # iva_rate.
     iva_rate: Optional[Decimal] = None
 
 
@@ -29,6 +32,9 @@ class QuoteItemResponse(BaseModel):
     product_variant_id: Optional[uuid.UUID]
     product_name_snapshot: Optional[str]
     product_sku_snapshot: Optional[str]
+    supply_variant_id: Optional[uuid.UUID]
+    supply_name_snapshot: Optional[str]
+    supply_sku_snapshot: Optional[str]
     service_description: Optional[str]
     hours: Optional[Decimal]
     hourly_rate_snapshot: Optional[Decimal]
@@ -41,6 +47,10 @@ class QuoteItemResponse(BaseModel):
 
 
 class QuoteCreate(BaseModel):
+    # Set once at creation, determined by which flow is invoked (productos
+    # pages omit this and get the default; servicios pages send it
+    # explicitly). Deliberately absent from QuoteUpdate — see below.
+    quote_type: QuoteType = QuoteType.productos
     title: str
     client_name: str
     client_email: EmailStr
@@ -59,6 +69,10 @@ class QuoteCreate(BaseModel):
 
 
 class QuoteUpdate(BaseModel):
+    # quote_type is deliberately NOT a field here — it is immutable after
+    # creation. update_data = model_dump(exclude_unset=True) can never carry
+    # it into repo.update_quote(**update_data), so this is a structural
+    # guarantee rather than a runtime guard.
     title: Optional[str] = None
     client_name: Optional[str] = None
     client_email: Optional[EmailStr] = None
@@ -77,6 +91,7 @@ class QuoteUpdate(BaseModel):
 # CLIENT response — no internal fields
 class QuoteClientResponse(BaseModel):
     id: uuid.UUID
+    quote_type: QuoteType
     title: str
     client_name: str
     client_email: str

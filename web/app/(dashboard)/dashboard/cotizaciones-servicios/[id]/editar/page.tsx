@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api, type InstallationCostType, type Product, type Quote } from "@/lib/api";
+import { api, type Quote, type QuoteItem, type Supply } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { QuoteItemsEditor, type QuoteItemDraft } from "@/components/quote-items-editor";
+import { ServiceQuoteItemsEditor, type ServiceQuoteItemDraft } from "@/components/service-quote-items-editor";
 import { quoteFormSchema, type QuoteFormValues } from "@/lib/quote-form";
 import { QuoteClientFields, QuoteInternalFields } from "@/components/quote-form-fields";
 
@@ -16,28 +17,55 @@ function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("es-AR", { dateStyle: "medium", timeStyle: "short" });
 }
 
-function itemsFromQuote(quote: Quote): QuoteItemDraft[] {
-  return quote.items
-    .filter((item) => item.kind === "product")
-    .map((item) => ({
+// D20 — never filters by kind (the anti-obs#153 invariant). Every item on
+// the quote is mapped, never dropped. `kind=product` cannot legitimately
+// occur here (server-side mutual exclusion, D11), but if it ever does the
+// fallback renders it as a read-only service-shaped line using its
+// product snapshot rather than silently hiding it.
+function itemsFromQuote(quote: Quote): ServiceQuoteItemDraft[] {
+  return quote.items.map((item: QuoteItem): ServiceQuoteItemDraft => {
+    if (item.kind === "supply") {
+      return {
+        id: item.id,
+        kind: "supply",
+        supply_variant_id: item.supply_variant_id ?? "",
+        supply_name: item.supply_name_snapshot ?? "Insumo",
+        supply_sku: item.supply_sku_snapshot ?? "",
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        iva_rate: item.iva_rate,
+      };
+    }
+    if (item.kind === "service") {
+      return {
+        id: item.id,
+        kind: "service",
+        service_description: item.service_description ?? "Concepto",
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        iva_rate: item.iva_rate,
+      };
+    }
+    // Unreachable in practice (kind=product is rejected server-side for
+    // servicios quotes) — degrades to a read-only concept line instead of
+    // being dropped, per D20.
+    return {
       id: item.id,
-      product_variant_id: item.product_variant_id ?? "",
-      product_name: item.product_name_snapshot ?? "Producto",
-      product_sku: item.product_sku_snapshot ?? "",
+      kind: "service",
+      service_description: item.product_name_snapshot ?? "Ítem",
       quantity: item.quantity,
       unit_price: item.unit_price,
       iva_rate: item.iva_rate,
-    }));
+    };
+  });
 }
 
-export default function EditarCotizacionPage() {
+export default function EditarCotizacionServiciosPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [quote, setQuote] = useState<Quote | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [items, setItems] = useState<QuoteItemDraft[]>([]);
-  const [installationCostType, setInstallationCostType] = useState<InstallationCostType | "">("");
-  const [installationCostValue, setInstallationCostValue] = useState("");
+  const [supplies, setSupplies] = useState<Supply[]>([]);
+  const [items, setItems] = useState<ServiceQuoteItemDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [itemBusy, setItemBusy] = useState(false);
@@ -59,13 +87,11 @@ export default function EditarCotizacionPage() {
       router.replace("/login");
       return;
     }
-    Promise.all([api.quotes.get(id, token), api.products.list()])
-      .then(([q, prods]) => {
+    Promise.all([api.quotes.get(id, token), api.supplies.list(token)])
+      .then(([q, sup]) => {
         setQuote(q);
-        setProducts(prods);
+        setSupplies(sup);
         setItems(itemsFromQuote(q));
-        setInstallationCostType(q.installation_cost_type ?? "");
-        setInstallationCostValue(q.installation_cost_value ?? "");
         reset({
           title: q.title,
           client_name: q.client_name,
@@ -83,26 +109,32 @@ export default function EditarCotizacionPage() {
       .finally(() => setLoading(false));
   }, [id, router, reset]);
 
-  async function handleAddItem(item: QuoteItemDraft) {
+  async function handleAddItem(item: ServiceQuoteItemDraft) {
     const token = getToken();
     if (!token) return;
     setItemBusy(true);
     setError(null);
     try {
-      const updated = await api.quotes.addItem(
-        id,
-        {
-          kind: "product",
-          product_variant_id: item.product_variant_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-        },
-        token
-      );
+      const payload =
+        item.kind === "supply"
+          ? {
+              kind: "supply",
+              supply_variant_id: item.supply_variant_id,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+            }
+          : {
+              kind: "service",
+              service_description: item.service_description,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              iva_rate: item.iva_rate,
+            };
+      const updated = await api.quotes.addItem(id, payload, token);
       setQuote(updated);
       setItems(itemsFromQuote(updated));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al agregar el producto");
+      setError(err instanceof Error ? err.message : "Error al agregar el ítem");
     } finally {
       setItemBusy(false);
     }
@@ -120,7 +152,7 @@ export default function EditarCotizacionPage() {
       setQuote(updated);
       setItems(itemsFromQuote(updated));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al quitar el producto");
+      setError(err instanceof Error ? err.message : "Error al quitar el ítem");
     } finally {
       setItemBusy(false);
     }
@@ -144,12 +176,10 @@ export default function EditarCotizacionPage() {
           cost_notes: data.cost_notes || null,
           margin_notes: data.margin_notes || null,
           internal_comments: data.internal_comments || null,
-          installation_cost_type: installationCostType || null,
-          installation_cost_value: installationCostType ? installationCostValue || "0" : null,
         },
         token
       );
-      router.push("/dashboard/cotizaciones");
+      router.push("/dashboard/cotizaciones-servicios");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al guardar los cambios");
     } finally {
@@ -169,12 +199,30 @@ export default function EditarCotizacionPage() {
     );
   }
 
+  // Guard: this page only edits servicios quotes — a productos quote id
+  // typed into the URL must not open the wrong editor.
+  if (quote.quote_type !== "servicios") {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-red-500 dark:text-red-400">
+          Esta cotización no es de tipo servicios.
+        </p>
+        <Link
+          href={`/dashboard/cotizaciones/${quote.id}/editar`}
+          className="text-sm text-brand-blue hover:underline"
+        >
+          Ir a la edición de Cotizaciones
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">Editar cotización</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">Editar cotización de servicios</h1>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          Modificá los datos, productos y costo de instalación de la cotización.
+          Modificá los datos, insumos y conceptos de la cotización.
         </p>
         {quote.updated_by_id && (
           <p className="mt-1.5 text-xs text-zinc-400 dark:text-zinc-500">
@@ -192,21 +240,17 @@ export default function EditarCotizacionPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <QuoteClientFields register={register} errors={errors} placeholders={false} />
 
-        {/* Products + installation cost */}
+        {/* Insumos + conceptos manuales */}
         <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Productos</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Insumos y conceptos</p>
             {itemBusy && <p className="text-xs text-zinc-400">Guardando…</p>}
           </div>
-          <QuoteItemsEditor
-            products={products}
+          <ServiceQuoteItemsEditor
+            supplies={supplies}
             items={items}
             onAdd={handleAddItem}
             onRemove={handleRemoveItem}
-            installationCostType={installationCostType}
-            installationCostValue={installationCostValue}
-            onInstallationCostTypeChange={setInstallationCostType}
-            onInstallationCostValueChange={setInstallationCostValue}
             contemplaIva={contemplaIva ?? true}
           />
         </div>
@@ -224,7 +268,7 @@ export default function EditarCotizacionPage() {
           </button>
           <button
             type="button"
-            onClick={() => router.push("/dashboard/cotizaciones")}
+            onClick={() => router.push("/dashboard/cotizaciones-servicios")}
             className="inline-flex items-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
           >
             Cancelar
