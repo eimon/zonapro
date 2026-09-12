@@ -246,6 +246,27 @@ export type Quote = {
   created_by_id?: string;
 };
 
+export type DashboardQuotesByStatus = { status: QuoteStatus; count: number };
+export type DashboardQuotesPerDay = { date: string; productos: number; servicios: number };
+export type DashboardLowStockVariant = {
+  variant_id: string;
+  product_id: string;
+  product_name: string;
+  sku: string;
+  stock_qty: number;
+};
+
+export type DashboardStats = {
+  active_products: number;
+  active_supplies: number;
+  approved_quotes_count: number;
+  approved_quotes_value: string;
+  pending_consultations: number;
+  quotes_by_status: DashboardQuotesByStatus[];
+  quotes_last_30_days: DashboardQuotesPerDay[];
+  low_stock_variants: DashboardLowStockVariant[];
+};
+
 // ── API client ────────────────────────────────────────────────────────────────
 
 export const api = {
@@ -482,6 +503,13 @@ export const api = {
       const blob = await res.blob();
       return URL.createObjectURL(blob);
     },
+  },
+
+  dashboard: {
+    // ADMIN-only aggregate (Permission.QUOTE_VIEW_ALL) — the caller must
+    // gate the fetch itself so a VENDEDOR session never hits this and gets
+    // a 403 (see the dashboard page's isAdmin check).
+    stats: (token: string) => request<DashboardStats>("/api/v1/dashboard/stats", {}, token),
   },
 
   settings: {
