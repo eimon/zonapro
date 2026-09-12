@@ -36,16 +36,22 @@ import { useLogout } from "@/lib/use-logout";
 const NAV_ITEMS = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/dashboard/productos", icon: Package, label: "Productos" },
-  { href: "/dashboard/insumos", icon: Boxes, label: "Insumos" },
   { href: "/dashboard/paquetes", icon: Layers, label: "Paquetes" },
   { href: "/dashboard/consultas", icon: MessageSquare, label: "Consultas" },
   { href: "/dashboard/cotizaciones", icon: FileText, label: "Cotizaciones" },
-  { href: "/dashboard/cotizaciones-servicios", icon: Wrench, label: "Cotizar Servicios" },
   { href: "/dashboard/ordenes", icon: ShoppingCart, label: "Órdenes" },
 ];
 
 const ADMIN_NAV_ITEMS = [
   { href: "/dashboard/usuarios", icon: Users, label: "Usuarios" },
+];
+
+// Insumos + Cotizar Servicios live in their own group, separated from the
+// rest of the top menu — they're a distinct workflow (materials/labor
+// quotes) rather than the storefront-facing catalog/order items above.
+const SERVICIOS_NAV_ITEMS = [
+  { href: "/dashboard/insumos", icon: Boxes, label: "Insumos" },
+  { href: "/dashboard/cotizaciones-servicios", icon: Wrench, label: "Cotizar Servicios" },
 ];
 
 const BOTTOM_ITEMS = [
@@ -146,6 +152,28 @@ export function Sidebar({
               href === "/dashboard"
                 ? pathname === href
                 : pathname === href || pathname.startsWith(href + "/");
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={onCloseMobile}
+                title={collapsed ? label : undefined}
+                className={`flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? "bg-brand-blue text-white"
+                    : "text-white/60 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                <Icon className="w-5 h-5 shrink-0" />
+                <span className={labelClass}>{label}</span>
+              </Link>
+            );
+          })}
+
+          <div className="my-2 border-t border-white/10" role="separator" />
+
+          {SERVICIOS_NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+            const isActive = pathname === href || pathname.startsWith(href + "/");
             return (
               <Link
                 key={href}
