@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from core.config import settings
 import models  # noqa: F401
-from routers import users, auth, category, product, supply, package, consultation, quote
+from routers import users, auth, category, product, supply, package, consultation, quote, dashboard
 from routers import settings as settings_router
 from exceptions.handlers import register_exception_handlers
 import logging
@@ -36,6 +36,7 @@ app.include_router(supply.router)
 app.include_router(package.router)
 app.include_router(consultation.router)
 app.include_router(quote.router)
+app.include_router(dashboard.router)
 app.include_router(settings_router.router)
 
 UPLOADS_DIR = Path(__file__).parent / "uploads"
