@@ -29,7 +29,77 @@ const STATUS_COLORS: Record<QuoteStatus, string> = {
   vencida: "bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400",
 };
 
+// Mirrors the backend's VALID_TRANSITIONS (api/services/quote_service.py) —
+// forward-only, aprobada/rechazada/vencida are terminal. Sending is manual
+// for now (no email/notification side effect), so "Enviar" is just a status
+// flip like the rest. The three transitions out of "enviada" are consequential
+// and hard to undo, so they ask for confirmation; borrador→enviada doesn't
+// (it's the routine next step, confirming it on every quote would be noise).
+const NEXT_STATUS_ACTIONS: Record<QuoteStatus, { status: QuoteStatus; label: string; confirmMessage?: string }[]> = {
+  borrador: [{ status: "enviada", label: "Enviar" }],
+  enviada: [
+    { status: "aprobada", label: "Aprobar", confirmMessage: "¿Marcar esta cotización como aprobada?" },
+    { status: "rechazada", label: "Rechazar", confirmMessage: "¿Marcar esta cotización como rechazada?" },
+    { status: "vencida", label: "Marcar vencida", confirmMessage: "¿Marcar esta cotización como vencida?" },
+  ],
+  aprobada: [],
+  rechazada: [],
+  vencida: [],
+};
+
 type ExportFormat = "pdf" | "jpg";
+
+function StatusActions({
+  quote,
+  busy,
+  onChangeStatus,
+  className = "",
+}: {
+  quote: Quote;
+  busy: boolean;
+  onChangeStatus: (quote: Quote, status: QuoteStatus, confirmMessage?: string) => void;
+  className?: string;
+}) {
+  const actions = NEXT_STATUS_ACTIONS[quote.status];
+  if (actions.length === 0) return null;
+
+  // A single next step (borrador→enviada) reads better as its own button;
+  // multiple options (out of "enviada") collapse into one compact select so
+  // the row doesn't sprout three extra buttons next to Editar/Ver PDF/Ver JPG.
+  if (actions.length === 1) {
+    const action = actions[0];
+    return (
+      <button
+        onClick={() => onChangeStatus(quote, action.status, action.confirmMessage)}
+        disabled={busy}
+        className={`inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-50 transition-colors whitespace-nowrap ${className}`}
+      >
+        {busy ? "Guardando..." : action.label}
+      </button>
+    );
+  }
+
+  return (
+    <select
+      value=""
+      onChange={(e) => {
+        const action = actions.find((a) => a.status === e.target.value);
+        if (action) onChangeStatus(quote, action.status, action.confirmMessage);
+      }}
+      disabled={busy}
+      className={`rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-2 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-brand-blue/50 disabled:opacity-50 ${className}`}
+    >
+      <option value="" disabled>
+        {busy ? "Guardando..." : "Cambiar estado"}
+      </option>
+      {actions.map((action) => (
+        <option key={action.status} value={action.status}>
+          {action.label}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 function ExportButtons({
   quote,
@@ -67,11 +137,15 @@ function QuoteCard({
   loadingFormat,
   onExport,
   editHrefBase,
+  statusBusy,
+  onChangeStatus,
 }: {
   quote: Quote;
   loadingFormat: ExportFormat | null;
   onExport: (id: string, format: ExportFormat) => void;
   editHrefBase: string;
+  statusBusy: boolean;
+  onChangeStatus: (quote: Quote, status: QuoteStatus, confirmMessage?: string) => void;
 }) {
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
@@ -114,6 +188,7 @@ function QuoteCard({
           Editar
         </Link>
         <ExportButtons quote={quote} loadingFormat={loadingFormat} onExport={onExport} className="flex-1" />
+        <StatusActions quote={quote} busy={statusBusy} onChangeStatus={onChangeStatus} />
       </div>
     </div>
   );
@@ -132,6 +207,7 @@ export function QuotesList({ quoteType, title, newHref, newLabel, editHrefBase }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<{ id: string; format: ExportFormat } | null>(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(20);
   const [page, setPage] = useState(1);
@@ -188,6 +264,21 @@ export function QuotesList({ quoteType, title, newHref, newLabel, editHrefBase }
       alert(err instanceof Error ? err.message : `Error al generar ${format.toUpperCase()}`);
     } finally {
       setExporting(null);
+    }
+  }
+
+  async function handleStatusChange(quote: Quote, status: QuoteStatus, confirmMessage?: string) {
+    if (confirmMessage && !window.confirm(confirmMessage)) return;
+    const token = getToken();
+    if (!token) return;
+    setUpdatingStatusId(quote.id);
+    try {
+      const updated = await api.quotes.update(quote.id, { status }, token);
+      setQuotes((prev) => prev.map((q) => (q.id === quote.id ? updated : q)));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al cambiar el estado");
+    } finally {
+      setUpdatingStatusId(null);
     }
   }
 
@@ -300,6 +391,11 @@ export function QuotesList({ quoteType, title, newHref, newLabel, editHrefBase }
                           loadingFormat={exporting?.id === quote.id ? exporting.format : null}
                           onExport={handleExport}
                         />
+                        <StatusActions
+                          quote={quote}
+                          busy={updatingStatusId === quote.id}
+                          onChangeStatus={handleStatusChange}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -317,6 +413,8 @@ export function QuotesList({ quoteType, title, newHref, newLabel, editHrefBase }
                 loadingFormat={exporting?.id === quote.id ? exporting.format : null}
                 onExport={handleExport}
                 editHrefBase={editHrefBase}
+                statusBusy={updatingStatusId === quote.id}
+                onChangeStatus={handleStatusChange}
               />
             ))}
           </div>
