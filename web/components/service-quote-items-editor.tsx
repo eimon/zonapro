@@ -1,20 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Wrench } from "lucide-react";
-import type { Supply } from "@/lib/api";
+import { Check, Plus, Pencil, Trash2, Wrench, X } from "lucide-react";
+import type { Product, Supply } from "@/lib/api";
 
 // New, structurally separate editor for the servicios flow (D7′ — NOT a
-// tab on quote-items-editor.tsx). Offers exactly two ways to add a line:
-// an insumo picker (kind=supply) and a manual concept+price form
-// (kind=service). No product picker exists here — the server also
-// enforces that kind=product is rejected on servicios quotes (D11).
+// tab on quote-items-editor.tsx). Offers three ways to add a line: a
+// producto picker (kind=product), an insumo picker (kind=supply), and a
+// manual concept+price form (kind=service). The server no longer enforces
+// mutual exclusion between quote_type and item kind — both quote flows
+// accept product, supply and service items (ALLOWED_ITEM_KINDS in
+// services/quote_service.py) — so this editor mirrors quote-items-editor's
+// product picker instead of rejecting it.
 //
 // Unlike the existing Cotizaciones edit page's known kind==="product"
 // filter bug (obs #153), this editor's draft list never filters by kind —
-// both supply and service items are always rendered (D20 anti-regression).
+// every item kind is always rendered (D20 anti-regression).
 
 export type ServiceQuoteItemDraft =
+  | {
+      kind: "product";
+      id?: string; // present once persisted (edit mode); absent for local/new items
+      product_variant_id: string;
+      product_name: string;
+      product_sku: string;
+      quantity: number;
+      unit_price: string;
+      iva_rate: string; // the product's IVA rate, snapshotted when the item is added
+    }
   | {
       kind: "supply";
       id?: string; // present once persisted (edit mode); absent for local/new items
@@ -44,32 +57,50 @@ function money(value: number) {
 }
 
 const KIND_LABELS: Record<ServiceQuoteItemDraft["kind"], string> = {
+  product: "Producto",
   supply: "Insumo",
   service: "Concepto",
 };
 
 const KIND_BADGE_CLASSES: Record<ServiceQuoteItemDraft["kind"], string> = {
+  product: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   supply: "bg-brand-blue/10 text-brand-blue",
   service: "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400",
 };
 
 function itemDescription(item: ServiceQuoteItemDraft): string {
-  return item.kind === "supply" ? item.supply_name : item.service_description;
+  if (item.kind === "product") return item.product_name;
+  if (item.kind === "supply") return item.supply_name;
+  return item.service_description;
+}
+
+function itemSku(item: ServiceQuoteItemDraft): string | null {
+  if (item.kind === "product") return item.product_sku;
+  if (item.kind === "supply") return item.supply_sku;
+  return null;
 }
 
 export function ServiceQuoteItemsEditor({
+  products,
   supplies,
   items,
   onAdd,
+  onUpdate,
   onRemove,
   contemplaIva,
 }: {
+  products: Product[];
   supplies: Supply[];
   items: ServiceQuoteItemDraft[];
   onAdd: (item: ServiceQuoteItemDraft) => void;
+  onUpdate: (index: number, patch: Partial<Extract<ServiceQuoteItemDraft, { kind: "service" }>>) => void;
   onRemove: (index: number) => void;
   contemplaIva: boolean;
 }) {
+  // Producto picker state
+  const [productVariantId, setProductVariantId] = useState("");
+  const [productQuantity, setProductQuantity] = useState(1);
+
   // Insumo picker state
   const [supplyVariantId, setSupplyVariantId] = useState("");
   const [supplyQuantity, setSupplyQuantity] = useState(1);
@@ -80,7 +111,25 @@ export function ServiceQuoteItemsEditor({
   const [conceptQuantity, setConceptQuantity] = useState(1);
   const [conceptIvaRate, setConceptIvaRate] = useState("21");
 
-  const variantOptions = supplies.flatMap((supply) =>
+  // Inline edit state — only ever active for a kind="service" row (manual
+  // concept lines are the only ones with an edit affordance).
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editDescription, setEditDescription] = useState("");
+  const [editQuantity, setEditQuantity] = useState(1);
+  const [editUnitPrice, setEditUnitPrice] = useState("");
+  const [editIvaRate, setEditIvaRate] = useState("21");
+
+  const productVariantOptions = products.flatMap((product) =>
+    product.variants.map((variant) => ({
+      variantId: variant.id,
+      label: `${product.name} — ${variant.name}`,
+      sku: variant.sku,
+      price: variant.price,
+      ivaRate: product.iva_rate,
+    }))
+  );
+
+  const supplyVariantOptions = supplies.flatMap((supply) =>
     supply.variants.map((variant) => ({
       variantId: variant.id,
       label: `${supply.name} — ${variant.name}`,
@@ -90,8 +139,24 @@ export function ServiceQuoteItemsEditor({
     }))
   );
 
+  function handleAddProduct() {
+    const option = productVariantOptions.find((o) => o.variantId === productVariantId);
+    if (!option || productQuantity < 1) return;
+    onAdd({
+      kind: "product",
+      product_variant_id: option.variantId,
+      product_name: option.label,
+      product_sku: option.sku,
+      quantity: productQuantity,
+      unit_price: option.price ?? "0",
+      iva_rate: option.ivaRate,
+    });
+    setProductVariantId("");
+    setProductQuantity(1);
+  }
+
   function handleAddSupply() {
-    const option = variantOptions.find((o) => o.variantId === supplyVariantId);
+    const option = supplyVariantOptions.find((o) => o.variantId === supplyVariantId);
     if (!option || supplyQuantity < 1) return;
     onAdd({
       kind: "supply",
@@ -119,6 +184,29 @@ export function ServiceQuoteItemsEditor({
     setConceptUnitPrice("");
     setConceptQuantity(1);
     setConceptIvaRate("21");
+  }
+
+  function startEditConcept(index: number, item: Extract<ServiceQuoteItemDraft, { kind: "service" }>) {
+    setEditingIndex(index);
+    setEditDescription(item.service_description);
+    setEditQuantity(item.quantity);
+    setEditUnitPrice(item.unit_price);
+    setEditIvaRate(item.iva_rate);
+  }
+
+  function cancelEditConcept() {
+    setEditingIndex(null);
+  }
+
+  function saveEditConcept(index: number) {
+    if (!editDescription.trim() || !editUnitPrice || editQuantity < 1) return;
+    onUpdate(index, {
+      service_description: editDescription.trim(),
+      quantity: editQuantity,
+      unit_price: editUnitPrice,
+      iva_rate: editIvaRate,
+    });
+    setEditingIndex(null);
   }
 
   const subtotal = items.reduce(
@@ -161,42 +249,131 @@ export function ServiceQuoteItemsEditor({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {items.map((item, index) => (
-                <tr key={item.id ?? `${item.kind}-${index}`}>
-                  <td className="px-3 py-2.5">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${KIND_BADGE_CLASSES[item.kind]}`}
-                    >
-                      {KIND_LABELS[item.kind]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <p className="text-zinc-900 dark:text-white">{itemDescription(item)}</p>
-                    {item.kind === "supply" && (
-                      <p className="text-xs text-zinc-400 font-mono">{item.supply_sku}</p>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-                    {item.quantity}
-                  </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-                    {money(parseFloat(item.unit_price))}
-                  </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums font-medium text-zinc-900 dark:text-white">
-                    {money(parseFloat(item.unit_price) * item.quantity)}
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
-                    <button
-                      type="button"
-                      onClick={() => onRemove(index)}
-                      className="p-1.5 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-150 cursor-pointer"
-                      aria-label="Quitar ítem"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {items.map((item, index) => {
+                const isEditing = item.kind === "service" && editingIndex === index;
+
+                if (isEditing) {
+                  return (
+                    <tr key={item.id ?? `${item.kind}-${index}`}>
+                      <td className="px-3 py-2.5">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${KIND_BADGE_CLASSES[item.kind]}`}
+                        >
+                          {KIND_LABELS[item.kind]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <input
+                          type="text"
+                          value={editDescription}
+                          onChange={(e) => setEditDescription(e.target.value)}
+                          className={inputClass}
+                        />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <input
+                          type="number"
+                          min={1}
+                          value={editQuantity}
+                          onChange={(e) => setEditQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                          className={`${inputClass} text-right`}
+                        />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={editUnitPrice}
+                          onChange={(e) => setEditUnitPrice(e.target.value)}
+                          className={`${inputClass} text-right`}
+                        />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <select
+                          value={editIvaRate}
+                          onChange={(e) => setEditIvaRate(e.target.value)}
+                          className={inputClass}
+                        >
+                          <option value="0">IVA 0%</option>
+                          <option value="10.5">IVA 10.5%</option>
+                          <option value="21">IVA 21%</option>
+                        </select>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => saveEditConcept(index)}
+                            disabled={!editDescription.trim() || !editUnitPrice}
+                            className="p-1.5 rounded-md text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150 cursor-pointer"
+                            aria-label="Guardar concepto"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEditConcept}
+                            className="p-1.5 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-150 cursor-pointer"
+                            aria-label="Cancelar edición"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return (
+                  <tr key={item.id ?? `${item.kind}-${index}`}>
+                    <td className="px-3 py-2.5">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${KIND_BADGE_CLASSES[item.kind]}`}
+                      >
+                        {KIND_LABELS[item.kind]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <p className="text-zinc-900 dark:text-white">{itemDescription(item)}</p>
+                      {itemSku(item) && (
+                        <p className="text-xs text-zinc-400 font-mono">{itemSku(item)}</p>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
+                      {item.quantity}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
+                      {money(parseFloat(item.unit_price))}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums font-medium text-zinc-900 dark:text-white">
+                      {money(parseFloat(item.unit_price) * item.quantity)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {item.kind === "service" && (
+                          <button
+                            type="button"
+                            onClick={() => startEditConcept(index, item)}
+                            className="p-1.5 rounded-md text-zinc-400 hover:text-brand-blue hover:bg-brand-blue/10 transition-colors duration-150 cursor-pointer"
+                            aria-label="Editar concepto"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => onRemove(index)}
+                          className="p-1.5 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-150 cursor-pointer"
+                          aria-label="Quitar ítem"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -205,13 +382,48 @@ export function ServiceQuoteItemsEditor({
       {items.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-2 py-8 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 text-center">
           <Wrench className="w-6 h-6 text-zinc-300 dark:text-zinc-700" />
-          <p className="text-sm text-zinc-400">Todavía no agregaste insumos ni conceptos</p>
+          <p className="text-sm text-zinc-400">Todavía no agregaste productos, insumos ni conceptos</p>
         </div>
       )}
 
-      {/* Add insumo row */}
+      {/* Add producto row */}
       <div className="space-y-2">
-        <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Agregar insumo</h3>
+        <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Agregar producto</h3>
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <select
+            value={productVariantId}
+            onChange={(e) => setProductVariantId(e.target.value)}
+            className={`${inputClass} sm:flex-1`}
+          >
+            <option value="">Seleccionar producto…</option>
+            {productVariantOptions.map((o) => (
+              <option key={o.variantId} value={o.variantId}>
+                {o.label} ({o.sku})
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min={1}
+            value={productQuantity}
+            onChange={(e) => setProductQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            className={`${inputClass} sm:w-24`}
+          />
+          <button
+            type="button"
+            onClick={handleAddProduct}
+            disabled={!productVariantId}
+            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 hover:brightness-110 active:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition-[filter] duration-150 cursor-pointer whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4" />
+            Agregar
+          </button>
+        </div>
+      </div>
+
+      {/* Add insumo row */}
+      <div className="space-y-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+        <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider pt-3">Agregar insumo</h3>
         <div className="flex flex-col sm:flex-row gap-2.5">
           <select
             value={supplyVariantId}
@@ -219,7 +431,7 @@ export function ServiceQuoteItemsEditor({
             className={`${inputClass} sm:flex-1`}
           >
             <option value="">Seleccionar insumo…</option>
-            {variantOptions.map((o) => (
+            {supplyVariantOptions.map((o) => (
               <option key={o.variantId} value={o.variantId}>
                 {o.label} ({o.sku})
               </option>

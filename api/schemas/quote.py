@@ -25,6 +25,17 @@ class QuoteItemCreate(BaseModel):
     iva_rate: Optional[Decimal] = None
 
 
+class QuoteItemUpdate(BaseModel):
+    # Editing is only allowed for kind=service items (manually-added concept
+    # lines) — kind, product_variant_id, and supply_variant_id are
+    # deliberately absent here and stay immutable via this endpoint; use
+    # delete+re-add to change a catalog-linked item.
+    service_description: Optional[str] = None
+    quantity: Optional[int] = None
+    unit_price: Optional[Decimal] = None
+    iva_rate: Optional[Decimal] = None
+
+
 class QuoteItemResponse(BaseModel):
     id: uuid.UUID
     kind: QuoteItemKind

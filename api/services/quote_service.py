@@ -6,7 +6,7 @@ from repositories.app_setting_repository import AppSettingRepository
 from repositories.quote_repository import QuoteRepository
 from repositories.product_repository import ProductVariantRepository
 from repositories.supply_repository import SupplyVariantRepository
-from schemas.quote import QuoteCreate, QuoteUpdate, QuoteItemCreate
+from schemas.quote import QuoteCreate, QuoteUpdate, QuoteItemCreate, QuoteItemUpdate
 from models.quote import Quote, QuoteItem
 from models.user import User
 from models.enums import QuoteItemKind, QuoteStatus, QuoteType, InstallationCostType
@@ -21,11 +21,18 @@ VALID_TRANSITIONS: dict[QuoteStatus, list[QuoteStatus]] = {
     QuoteStatus.vencida: [],
 }
 
-# Mutual exclusion between the productos and servicios flows, mirroring the
-# VALID_TRANSITIONS idiom above.
+# Both quote types allow the same set of item kinds — the productos and
+# servicios flows are distinguished by page/branding/listing, not by which
+# item kinds they may contain. Kept as a per-quote_type map (rather than a
+# flat set) so _assert_item_kind_allowed stays a fail-closed guard for any
+# future quote_type that shouldn't inherit this default.
 ALLOWED_ITEM_KINDS: dict[QuoteType, frozenset[QuoteItemKind]] = {
-    QuoteType.productos: frozenset({QuoteItemKind.product, QuoteItemKind.service}),
-    QuoteType.servicios: frozenset({QuoteItemKind.supply, QuoteItemKind.service}),
+    QuoteType.productos: frozenset(
+        {QuoteItemKind.product, QuoteItemKind.supply, QuoteItemKind.service}
+    ),
+    QuoteType.servicios: frozenset(
+        {QuoteItemKind.product, QuoteItemKind.supply, QuoteItemKind.service}
+    ),
 }
 
 _KIND_LABELS = {
@@ -263,6 +270,41 @@ class QuoteService:
 
         hourly_rate = await self.get_hourly_rate()
         await self._build_item(quote_id, data, hourly_rate, quote.quote_type)
+        await self.repo.update_quote(quote, updated_by_id=user.id)
+
+        updated = await self.repo.get_with_items(quote_id)
+        return _add_total(updated)
+
+    async def update_item(
+        self, quote_id: uuid.UUID, item_id: uuid.UUID, data: QuoteItemUpdate, user: User
+    ) -> Quote:
+        quote = await self.repo.get_with_items(quote_id)
+        if not quote:
+            raise NotFoundException("Cotización no encontrada")
+        self._check_ownership(quote, user)
+
+        item = await self.repo.get_item(item_id)
+        if not item or item.quote_id != quote_id:
+            raise NotFoundException("Ítem no encontrado en esta cotización")
+
+        # Editing is only allowed for manually-added concept lines — catalog
+        # -linked product/supply items are immutable via this endpoint (D per
+        # request: delete+re-add covers those instead).
+        if item.kind != QuoteItemKind.service:
+            raise BadRequestException(
+                "Solo se pueden editar los conceptos manuales de la cotización"
+            )
+
+        update_data = data.model_dump(exclude_unset=True)
+
+        # subtotal is derived, not client-supplied — recompute it whenever
+        # either factor changes, mirroring _build_item's subtotal formula.
+        if "quantity" in update_data or "unit_price" in update_data:
+            new_quantity = update_data.get("quantity", item.quantity)
+            new_unit_price = update_data.get("unit_price", item.unit_price)
+            update_data["subtotal"] = new_unit_price * new_quantity
+
+        await self.repo.update_item(item, **update_data)
         await self.repo.update_quote(quote, updated_by_id=user.id)
 
         updated = await self.repo.get_with_items(quote_id)

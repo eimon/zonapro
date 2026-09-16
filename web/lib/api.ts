@@ -485,6 +485,8 @@ export const api = {
       request<void>(`/api/v1/quotes/${id}`, { method: "DELETE" }, token),
     addItem: (id: string, data: unknown, token: string) =>
       request<Quote>(`/api/v1/quotes/${id}/items`, { method: "POST", body: JSON.stringify(data) }, token),
+    updateItem: (id: string, itemId: string, data: unknown, token: string) =>
+      request<Quote>(`/api/v1/quotes/${id}/items/${itemId}`, { method: "PATCH", body: JSON.stringify(data) }, token),
     removeItem: (id: string, itemId: string, token: string) =>
       request<void>(`/api/v1/quotes/${id}/items/${itemId}`, { method: "DELETE" }, token),
     exportPdf: async (id: string, token: string): Promise<string> => {

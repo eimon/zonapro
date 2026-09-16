@@ -145,3 +145,10 @@ class QuoteRepository(BaseRepository[Quote]):
         await self.db.flush()
         await self.db.refresh(obj)
         return obj
+
+    async def update_item(self, obj: QuoteItem, **kwargs) -> QuoteItem:
+        for key, value in kwargs.items():
+            setattr(obj, key, value)
+        await self.db.flush()
+        await self.db.refresh(obj)
+        return obj

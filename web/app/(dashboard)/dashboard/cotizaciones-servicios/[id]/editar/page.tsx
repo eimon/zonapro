@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api, type Quote, type QuoteItem, type Supply } from "@/lib/api";
+import { api, type Product, type Quote, type QuoteItem, type Supply } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { ServiceQuoteItemsEditor, type ServiceQuoteItemDraft } from "@/components/service-quote-items-editor";
 import { quoteFormSchema, type QuoteFormValues } from "@/lib/quote-form";
@@ -18,12 +18,24 @@ function formatDateTime(iso: string) {
 }
 
 // D20 — never filters by kind (the anti-obs#153 invariant). Every item on
-// the quote is mapped, never dropped. `kind=product` cannot legitimately
-// occur here (server-side mutual exclusion, D11), but if it ever does the
-// fallback renders it as a read-only service-shaped line using its
-// product snapshot rather than silently hiding it.
+// the quote is mapped, never dropped. `kind=product` is now a first-class
+// case here too — server-side mutual exclusion between quote_type and item
+// kind was removed, so servicios quotes may legitimately contain product
+// items snapshotted the same way the productos flow does.
 function itemsFromQuote(quote: Quote): ServiceQuoteItemDraft[] {
   return quote.items.map((item: QuoteItem): ServiceQuoteItemDraft => {
+    if (item.kind === "product") {
+      return {
+        id: item.id,
+        kind: "product",
+        product_variant_id: item.product_variant_id ?? "",
+        product_name: item.product_name_snapshot ?? "Producto",
+        product_sku: item.product_sku_snapshot ?? "",
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        iva_rate: item.iva_rate,
+      };
+    }
     if (item.kind === "supply") {
       return {
         id: item.id,
@@ -36,23 +48,11 @@ function itemsFromQuote(quote: Quote): ServiceQuoteItemDraft[] {
         iva_rate: item.iva_rate,
       };
     }
-    if (item.kind === "service") {
-      return {
-        id: item.id,
-        kind: "service",
-        service_description: item.service_description ?? "Concepto",
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        iva_rate: item.iva_rate,
-      };
-    }
-    // Unreachable in practice (kind=product is rejected server-side for
-    // servicios quotes) — degrades to a read-only concept line instead of
-    // being dropped, per D20.
+    // kind=service
     return {
       id: item.id,
       kind: "service",
-      service_description: item.product_name_snapshot ?? "Ítem",
+      service_description: item.service_description ?? "Concepto",
       quantity: item.quantity,
       unit_price: item.unit_price,
       iva_rate: item.iva_rate,
@@ -64,6 +64,7 @@ export default function EditarCotizacionServiciosPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [items, setItems] = useState<ServiceQuoteItemDraft[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,9 +88,10 @@ export default function EditarCotizacionServiciosPage() {
       router.replace("/login");
       return;
     }
-    Promise.all([api.quotes.get(id, token), api.supplies.list(token)])
-      .then(([q, sup]) => {
+    Promise.all([api.quotes.get(id, token), api.products.list(), api.supplies.list(token)])
+      .then(([q, prods, sup]) => {
         setQuote(q);
+        setProducts(prods);
         setSupplies(sup);
         setItems(itemsFromQuote(q));
         reset({
@@ -116,7 +118,14 @@ export default function EditarCotizacionServiciosPage() {
     setError(null);
     try {
       const payload =
-        item.kind === "supply"
+        item.kind === "product"
+          ? {
+              kind: "product",
+              product_variant_id: item.product_variant_id,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+            }
+          : item.kind === "supply"
           ? {
               kind: "supply",
               supply_variant_id: item.supply_variant_id,
@@ -135,6 +144,26 @@ export default function EditarCotizacionServiciosPage() {
       setItems(itemsFromQuote(updated));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al agregar el ítem");
+    } finally {
+      setItemBusy(false);
+    }
+  }
+
+  async function handleUpdateItem(
+    index: number,
+    patch: Partial<Extract<ServiceQuoteItemDraft, { kind: "service" }>>
+  ) {
+    const token = getToken();
+    const target = items[index];
+    if (!token || !target?.id) return;
+    setItemBusy(true);
+    setError(null);
+    try {
+      const updated = await api.quotes.updateItem(id, target.id, patch, token);
+      setQuote(updated);
+      setItems(itemsFromQuote(updated));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al editar el ítem");
     } finally {
       setItemBusy(false);
     }
@@ -240,16 +269,18 @@ export default function EditarCotizacionServiciosPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <QuoteClientFields register={register} errors={errors} placeholders={false} />
 
-        {/* Insumos + conceptos manuales */}
+        {/* Productos + insumos + conceptos manuales */}
         <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Insumos y conceptos</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Productos, insumos y conceptos</p>
             {itemBusy && <p className="text-xs text-zinc-400">Guardando…</p>}
           </div>
           <ServiceQuoteItemsEditor
+            products={products}
             supplies={supplies}
             items={items}
             onAdd={handleAddItem}
+            onUpdate={handleUpdateItem}
             onRemove={handleRemoveItem}
             contemplaIva={contemplaIva ?? true}
           />

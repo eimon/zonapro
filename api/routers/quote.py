@@ -17,6 +17,7 @@ from schemas.quote import (
     QuoteCreate,
     QuoteInternalResponse,
     QuoteItemCreate,
+    QuoteItemUpdate,
     QuoteUpdate,
 )
 from services.quote_service import QuoteService
@@ -83,6 +84,17 @@ async def add_item(
     current_user: User = Depends(has_role(Permission.QUOTE_CREATE)),
 ):
     return await QuoteService(db).add_item(quote_id, data, current_user)
+
+
+@router.patch("/{quote_id}/items/{item_id}", response_model=QuoteInternalResponse)
+async def update_item(
+    quote_id: uuid.UUID,
+    item_id: uuid.UUID,
+    data: QuoteItemUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_role(Permission.QUOTE_CREATE)),
+):
+    return await QuoteService(db).update_item(quote_id, item_id, data, current_user)
 
 
 @router.delete("/{quote_id}/items/{item_id}", status_code=204)

@@ -2,17 +2,37 @@
 
 import { useState } from "react";
 import { Package, Plus, Trash2 } from "lucide-react";
-import type { InstallationCostType, Product } from "@/lib/api";
+import type { InstallationCostType, Product, Supply } from "@/lib/api";
 
-export type QuoteItemDraft = {
-  id?: string; // present once persisted (edit mode); absent for local/new items
-  product_variant_id: string;
-  product_name: string;
-  product_sku: string;
-  quantity: number;
-  unit_price: string;
-  iva_rate: string; // the product's IVA rate, snapshotted when the item is added
-};
+// Both quote flows now allow product AND supply items (server-side mutual
+// exclusion between quote_type and item kind was removed — see
+// services/quote_service.py ALLOWED_ITEM_KINDS). This editor offers a
+// "Productos" picker and an "Insumos" picker; the servicios editor
+// (service-quote-items-editor.tsx) mirrors this with its own product
+// picker. The two editors stay structurally separate (D7′/D18) rather than
+// sharing a component — their surrounding sections (installation cost vs.
+// manual concept) differ enough that a shared abstraction would be awkward.
+export type QuoteItemDraft =
+  | {
+      kind: "product";
+      id?: string; // present once persisted (edit mode); absent for local/new items
+      product_variant_id: string;
+      product_name: string;
+      product_sku: string;
+      quantity: number;
+      unit_price: string;
+      iva_rate: string; // the product's IVA rate, snapshotted when the item is added
+    }
+  | {
+      kind: "supply";
+      id?: string;
+      supply_variant_id: string;
+      supply_name: string;
+      supply_sku: string;
+      quantity: number;
+      unit_price: string;
+      iva_rate: string; // the supply's IVA rate, snapshotted when the item is added
+    };
 
 const inputClass =
   "w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-blue/25 focus:border-brand-blue transition-all duration-150";
@@ -24,8 +44,27 @@ function money(value: number) {
   return `$${value.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+const KIND_LABELS: Record<QuoteItemDraft["kind"], string> = {
+  product: "Producto",
+  supply: "Insumo",
+};
+
+const KIND_BADGE_CLASSES: Record<QuoteItemDraft["kind"], string> = {
+  product: "bg-brand-blue/10 text-brand-blue",
+  supply: "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400",
+};
+
+function itemName(item: QuoteItemDraft): string {
+  return item.kind === "product" ? item.product_name : item.supply_name;
+}
+
+function itemSku(item: QuoteItemDraft): string {
+  return item.kind === "product" ? item.product_sku : item.supply_sku;
+}
+
 export function QuoteItemsEditor({
   products,
+  supplies,
   items,
   onAdd,
   onRemove,
@@ -36,6 +75,7 @@ export function QuoteItemsEditor({
   contemplaIva,
 }: {
   products: Product[];
+  supplies: Supply[];
   items: QuoteItemDraft[];
   onAdd: (item: QuoteItemDraft) => void;
   onRemove: (index: number) => void;
@@ -45,8 +85,13 @@ export function QuoteItemsEditor({
   onInstallationCostValueChange: (value: string) => void;
   contemplaIva: boolean;
 }) {
+  // Producto picker state
   const [variantId, setVariantId] = useState("");
   const [quantity, setQuantity] = useState(1);
+
+  // Insumo picker state
+  const [supplyVariantId, setSupplyVariantId] = useState("");
+  const [supplyQuantity, setSupplyQuantity] = useState(1);
 
   const variantOptions = products.flatMap((product) =>
     product.variants.map((variant) => ({
@@ -58,10 +103,21 @@ export function QuoteItemsEditor({
     }))
   );
 
+  const supplyVariantOptions = supplies.flatMap((supply) =>
+    supply.variants.map((variant) => ({
+      variantId: variant.id,
+      label: `${supply.name} — ${variant.name}`,
+      sku: variant.sku,
+      price: variant.price,
+      ivaRate: supply.iva_rate,
+    }))
+  );
+
   function handleAdd() {
     const option = variantOptions.find((o) => o.variantId === variantId);
     if (!option || quantity < 1) return;
     onAdd({
+      kind: "product",
       product_variant_id: option.variantId,
       product_name: option.label,
       product_sku: option.sku,
@@ -73,15 +129,39 @@ export function QuoteItemsEditor({
     setQuantity(1);
   }
 
-  const productsSubtotal = items.reduce(
+  function handleAddSupply() {
+    const option = supplyVariantOptions.find((o) => o.variantId === supplyVariantId);
+    if (!option || supplyQuantity < 1) return;
+    onAdd({
+      kind: "supply",
+      supply_variant_id: option.variantId,
+      supply_name: option.label,
+      supply_sku: option.sku,
+      quantity: supplyQuantity,
+      unit_price: option.price ?? "0",
+      iva_rate: option.ivaRate,
+    });
+    setSupplyVariantId("");
+    setSupplyQuantity(1);
+  }
+
+  // All items (product + supply) count toward the displayed net subtotal
+  // and the quote total — mirrors core/pricing.py's items_subtotal().
+  const itemsSubtotal = items.reduce(
     (sum, item) => sum + parseFloat(item.unit_price) * item.quantity,
     0
   );
+  // Percentage-based installation cost is a percentage of PRODUCTS only,
+  // never supplies — mirrors core/pricing.py's products_subtotal(), which
+  // installation_cost_amount() uses for the percentage base.
+  const productsOnlySubtotal = items
+    .filter((item) => item.kind === "product")
+    .reduce((sum, item) => sum + parseFloat(item.unit_price) * item.quantity, 0);
   const installationAmount =
     installationCostType === "fixed"
       ? parseFloat(installationCostValue || "0")
       : installationCostType === "percentage"
-      ? (productsSubtotal * parseFloat(installationCostValue || "0")) / 100
+      ? (productsOnlySubtotal * parseFloat(installationCostValue || "0")) / 100
       : 0;
   const itemsIvaAmount = contemplaIva
     ? items.reduce(
@@ -93,18 +173,21 @@ export function QuoteItemsEditor({
   const installationIvaAmount =
     contemplaIva && installationCostType ? (installationAmount * INSTALLATION_IVA_RATE) / 100 : 0;
   const ivaAmount = itemsIvaAmount + installationIvaAmount;
-  const total = productsSubtotal + installationAmount + ivaAmount;
+  const total = itemsSubtotal + installationAmount + ivaAmount;
 
   return (
     <div className="space-y-5">
       {/* Item list */}
       {items.length > 0 && (
         <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-x-auto">
-          <table className="w-full text-sm min-w-[520px]">
+          <table className="w-full text-sm min-w-[560px]">
             <thead>
               <tr className="bg-zinc-50 dark:bg-zinc-950/40 border-b border-zinc-200 dark:border-zinc-800">
+                <th className="text-left px-3 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                  Tipo
+                </th>
                 <th className="text-left px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                  Producto
+                  Descripción
                 </th>
                 <th className="text-right px-3 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                   Cant.
@@ -120,10 +203,17 @@ export function QuoteItemsEditor({
             </thead>
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
               {items.map((item, index) => (
-                <tr key={item.id ?? `${item.product_variant_id}-${index}`}>
+                <tr key={item.id ?? `${item.kind}-${index}`}>
+                  <td className="px-3 py-2.5">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${KIND_BADGE_CLASSES[item.kind]}`}
+                    >
+                      {KIND_LABELS[item.kind]}
+                    </span>
+                  </td>
                   <td className="px-4 py-2.5">
-                    <p className="text-zinc-900 dark:text-white">{item.product_name}</p>
-                    <p className="text-xs text-zinc-400 font-mono">{item.product_sku}</p>
+                    <p className="text-zinc-900 dark:text-white">{itemName(item)}</p>
+                    <p className="text-xs text-zinc-400 font-mono">{itemSku(item)}</p>
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
                     {item.quantity}
@@ -139,7 +229,7 @@ export function QuoteItemsEditor({
                       type="button"
                       onClick={() => onRemove(index)}
                       className="p-1.5 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-150 cursor-pointer"
-                      aria-label="Quitar producto"
+                      aria-label="Quitar ítem"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -154,40 +244,78 @@ export function QuoteItemsEditor({
       {items.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-2 py-8 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 text-center">
           <Package className="w-6 h-6 text-zinc-300 dark:text-zinc-700" />
-          <p className="text-sm text-zinc-400">Todavía no agregaste productos</p>
+          <p className="text-sm text-zinc-400">Todavía no agregaste productos ni insumos</p>
         </div>
       )}
 
-      {/* Add item row */}
-      <div className="flex flex-col sm:flex-row gap-2.5">
-        <select
-          value={variantId}
-          onChange={(e) => setVariantId(e.target.value)}
-          className={`${inputClass} sm:flex-1`}
-        >
-          <option value="">Seleccionar producto…</option>
-          {variantOptions.map((o) => (
-            <option key={o.variantId} value={o.variantId}>
-              {o.label} ({o.sku})
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min={1}
-          value={quantity}
-          onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
-          className={`${inputClass} sm:w-24`}
-        />
-        <button
-          type="button"
-          onClick={handleAdd}
-          disabled={!variantId}
-          className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 hover:brightness-110 active:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition-[filter] duration-150 cursor-pointer whitespace-nowrap"
-        >
-          <Plus className="w-4 h-4" />
-          Agregar
-        </button>
+      {/* Add producto row */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Agregar producto</h3>
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <select
+            value={variantId}
+            onChange={(e) => setVariantId(e.target.value)}
+            className={`${inputClass} sm:flex-1`}
+          >
+            <option value="">Seleccionar producto…</option>
+            {variantOptions.map((o) => (
+              <option key={o.variantId} value={o.variantId}>
+                {o.label} ({o.sku})
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min={1}
+            value={quantity}
+            onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            className={`${inputClass} sm:w-24`}
+          />
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={!variantId}
+            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 hover:brightness-110 active:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition-[filter] duration-150 cursor-pointer whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4" />
+            Agregar
+          </button>
+        </div>
+      </div>
+
+      {/* Add insumo row */}
+      <div className="space-y-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+        <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider pt-3">Agregar insumo</h3>
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <select
+            value={supplyVariantId}
+            onChange={(e) => setSupplyVariantId(e.target.value)}
+            className={`${inputClass} sm:flex-1`}
+          >
+            <option value="">Seleccionar insumo…</option>
+            {supplyVariantOptions.map((o) => (
+              <option key={o.variantId} value={o.variantId}>
+                {o.label} ({o.sku})
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min={1}
+            value={supplyQuantity}
+            onChange={(e) => setSupplyQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            className={`${inputClass} sm:w-24`}
+          />
+          <button
+            type="button"
+            onClick={handleAddSupply}
+            disabled={!supplyVariantId}
+            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 hover:brightness-110 active:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition-[filter] duration-150 cursor-pointer whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4" />
+            Agregar
+          </button>
+        </div>
       </div>
 
       {/* Installation cost */}
@@ -229,7 +357,7 @@ export function QuoteItemsEditor({
       <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5">
         <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
           <span>Precio sin impuestos</span>
-          <span className="tabular-nums">{money(productsSubtotal)}</span>
+          <span className="tabular-nums">{money(itemsSubtotal)}</span>
         </div>
         {contemplaIva && (
           <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">

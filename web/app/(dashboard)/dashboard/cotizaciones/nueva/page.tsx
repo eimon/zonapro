@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api, type InstallationCostType, type Product } from "@/lib/api";
+import { api, type InstallationCostType, type Product, type Supply } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { QuoteItemsEditor, type QuoteItemDraft } from "@/components/quote-items-editor";
 import { quoteFormSchema, type QuoteFormValues } from "@/lib/quote-form";
@@ -17,12 +17,16 @@ export default function NuevaCotizacionPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [supplies, setSupplies] = useState<Supply[]>([]);
   const [items, setItems] = useState<QuoteItemDraft[]>([]);
   const [installationCostType, setInstallationCostType] = useState<InstallationCostType | "">("");
   const [installationCostValue, setInstallationCostValue] = useState("");
 
   useEffect(() => {
     api.products.list().then(setProducts).catch(() => {});
+    const token = getToken();
+    if (!token) return;
+    api.supplies.list(token).then(setSupplies).catch(() => {});
   }, []);
 
   const {
@@ -56,12 +60,21 @@ export default function NuevaCotizacionPage() {
           internal_comments: data.internal_comments || null,
           installation_cost_type: installationCostType || null,
           installation_cost_value: installationCostType ? installationCostValue || "0" : null,
-          items: items.map((item) => ({
-            kind: "product",
-            product_variant_id: item.product_variant_id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-          })),
+          items: items.map((item) =>
+            item.kind === "supply"
+              ? {
+                  kind: "supply",
+                  supply_variant_id: item.supply_variant_id,
+                  quantity: item.quantity,
+                  unit_price: item.unit_price,
+                }
+              : {
+                  kind: "product",
+                  product_variant_id: item.product_variant_id,
+                  quantity: item.quantity,
+                  unit_price: item.unit_price,
+                }
+          ),
         },
         token,
       );
@@ -91,13 +104,14 @@ export default function NuevaCotizacionPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <QuoteClientFields register={register} errors={errors} />
 
-        {/* Products + installation cost */}
+        {/* Products + supplies + installation cost */}
         <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-4">
-            Productos
+            Productos e insumos
           </p>
           <QuoteItemsEditor
             products={products}
+            supplies={supplies}
             items={items}
             onAdd={(item) => setItems((prev) => [...prev, item])}
             onRemove={(index) => setItems((prev) => prev.filter((_, i) => i !== index))}

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api, type InstallationCostType, type Product, type Quote } from "@/lib/api";
+import { api, type InstallationCostType, type Product, type Quote, type QuoteItem, type Supply } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { QuoteItemsEditor, type QuoteItemDraft } from "@/components/quote-items-editor";
 import { quoteFormSchema, type QuoteFormValues } from "@/lib/quote-form";
@@ -16,18 +16,51 @@ function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("es-AR", { dateStyle: "medium", timeStyle: "short" });
 }
 
+// D20 — never filters by kind (the anti-obs#153 invariant). Every item on
+// the quote is mapped, never dropped: kind=product and kind=supply are
+// both first-class here (server-side mutual exclusion between quote_type
+// and item kind was removed), and kind=service degrades to a read-only
+// product-shaped line using its service description rather than being
+// silently hidden.
 function itemsFromQuote(quote: Quote): QuoteItemDraft[] {
-  return quote.items
-    .filter((item) => item.kind === "product")
-    .map((item) => ({
+  return quote.items.map((item: QuoteItem): QuoteItemDraft => {
+    if (item.kind === "supply") {
+      return {
+        id: item.id,
+        kind: "supply",
+        supply_variant_id: item.supply_variant_id ?? "",
+        supply_name: item.supply_name_snapshot ?? "Insumo",
+        supply_sku: item.supply_sku_snapshot ?? "",
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        iva_rate: item.iva_rate,
+      };
+    }
+    if (item.kind === "product") {
+      return {
+        id: item.id,
+        kind: "product",
+        product_variant_id: item.product_variant_id ?? "",
+        product_name: item.product_name_snapshot ?? "Producto",
+        product_sku: item.product_sku_snapshot ?? "",
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        iva_rate: item.iva_rate,
+      };
+    }
+    // kind=service: not addable from this editor, but preserved on reload
+    // rather than dropped, per D20.
+    return {
       id: item.id,
-      product_variant_id: item.product_variant_id ?? "",
-      product_name: item.product_name_snapshot ?? "Producto",
-      product_sku: item.product_sku_snapshot ?? "",
+      kind: "product",
+      product_variant_id: "",
+      product_name: item.service_description ?? "Ítem",
+      product_sku: "",
       quantity: item.quantity,
       unit_price: item.unit_price,
       iva_rate: item.iva_rate,
-    }));
+    };
+  });
 }
 
 export default function EditarCotizacionPage() {
@@ -35,6 +68,7 @@ export default function EditarCotizacionPage() {
   const router = useRouter();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [supplies, setSupplies] = useState<Supply[]>([]);
   const [items, setItems] = useState<QuoteItemDraft[]>([]);
   const [installationCostType, setInstallationCostType] = useState<InstallationCostType | "">("");
   const [installationCostValue, setInstallationCostValue] = useState("");
@@ -59,10 +93,11 @@ export default function EditarCotizacionPage() {
       router.replace("/login");
       return;
     }
-    Promise.all([api.quotes.get(id, token), api.products.list()])
-      .then(([q, prods]) => {
+    Promise.all([api.quotes.get(id, token), api.products.list(), api.supplies.list(token)])
+      .then(([q, prods, sup]) => {
         setQuote(q);
         setProducts(prods);
+        setSupplies(sup);
         setItems(itemsFromQuote(q));
         setInstallationCostType(q.installation_cost_type ?? "");
         setInstallationCostValue(q.installation_cost_value ?? "");
@@ -89,20 +124,25 @@ export default function EditarCotizacionPage() {
     setItemBusy(true);
     setError(null);
     try {
-      const updated = await api.quotes.addItem(
-        id,
-        {
-          kind: "product",
-          product_variant_id: item.product_variant_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-        },
-        token
-      );
+      const payload =
+        item.kind === "supply"
+          ? {
+              kind: "supply",
+              supply_variant_id: item.supply_variant_id,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+            }
+          : {
+              kind: "product",
+              product_variant_id: item.product_variant_id,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+            };
+      const updated = await api.quotes.addItem(id, payload, token);
       setQuote(updated);
       setItems(itemsFromQuote(updated));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al agregar el producto");
+      setError(err instanceof Error ? err.message : "Error al agregar el ítem");
     } finally {
       setItemBusy(false);
     }
@@ -192,14 +232,15 @@ export default function EditarCotizacionPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <QuoteClientFields register={register} errors={errors} placeholders={false} />
 
-        {/* Products + installation cost */}
+        {/* Products + supplies + installation cost */}
         <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Productos</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Productos e insumos</p>
             {itemBusy && <p className="text-xs text-zinc-400">Guardando…</p>}
           </div>
           <QuoteItemsEditor
             products={products}
+            supplies={supplies}
             items={items}
             onAdd={handleAddItem}
             onRemove={handleRemoveItem}

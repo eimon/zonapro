@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api, type Supply } from "@/lib/api";
+import { api, type Product, type Supply } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { ServiceQuoteItemsEditor, type ServiceQuoteItemDraft } from "@/components/service-quote-items-editor";
 import { quoteFormSchema, type QuoteFormValues } from "@/lib/quote-form";
@@ -13,6 +13,14 @@ import { QuoteClientFields, QuoteInternalFields } from "@/components/quote-form-
 type FormData = QuoteFormValues;
 
 function itemToPayload(item: ServiceQuoteItemDraft) {
+  if (item.kind === "product") {
+    return {
+      kind: "product",
+      product_variant_id: item.product_variant_id,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+    };
+  }
   if (item.kind === "supply") {
     return {
       kind: "supply",
@@ -34,10 +42,12 @@ export default function NuevaCotizacionServiciosPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [items, setItems] = useState<ServiceQuoteItemDraft[]>([]);
 
   useEffect(() => {
+    api.products.list().then(setProducts).catch(() => {});
     const token = getToken();
     if (!token) return;
     api.supplies.list(token).then(setSupplies).catch(() => {});
@@ -107,15 +117,21 @@ export default function NuevaCotizacionServiciosPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <QuoteClientFields register={register} errors={errors} />
 
-        {/* Insumos + conceptos manuales */}
+        {/* Productos + insumos + conceptos manuales */}
         <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-4">
-            Insumos y conceptos
+            Productos, insumos y conceptos
           </p>
           <ServiceQuoteItemsEditor
+            products={products}
             supplies={supplies}
             items={items}
             onAdd={(item) => setItems((prev) => [...prev, item])}
+            onUpdate={(index, patch) =>
+              setItems((prev) =>
+                prev.map((it, i) => (i === index && it.kind === "service" ? { ...it, ...patch } : it))
+              )
+            }
             onRemove={(index) => setItems((prev) => prev.filter((_, i) => i !== index))}
             contemplaIva={contemplaIva}
           />
