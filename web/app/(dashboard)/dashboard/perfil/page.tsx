@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, type UserMe } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { ProfileCard } from "@/components/profile-card";
+import { ChangePasswordForm } from "@/components/change-password-form";
 
 export default function PerfilPage() {
   const [user, setUser] = useState<UserMe | null>(null);
@@ -25,5 +26,10 @@ export default function PerfilPage() {
 
   if (!user) return null;
 
-  return <ProfileCard user={user} />;
+  return (
+    <div>
+      <ProfileCard user={user} />
+      <ChangePasswordForm />
+    </div>
+  );
 }

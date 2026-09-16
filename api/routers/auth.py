@@ -3,10 +3,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import settings
 from core.database import get_db
-from dependencies.auth import verify_client
+from dependencies.auth import get_current_user, verify_client
 from services.auth_service import AuthService
 from schemas.password_reset import SetPasswordRequest
-from schemas.user import RefreshRequest, TokenResponse, UserRegister
+from schemas.user import ChangePasswordRequest, RefreshRequest, TokenResponse, UserRegister
+from models.user import User
 
 router = APIRouter(prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 
@@ -47,3 +48,12 @@ async def set_password(
     db: AsyncSession = Depends(get_db),
 ):
     await AuthService(db).set_password(data.token, data.new_password)
+
+
+@router.post("/change-password", status_code=204)
+async def change_password(
+    data: ChangePasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await AuthService(db).change_password(current_user, data.current_password, data.new_password)

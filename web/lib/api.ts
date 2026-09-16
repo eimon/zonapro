@@ -298,6 +298,16 @@ export const api = {
         body: JSON.stringify({ token, new_password }),
       }),
 
+    changePassword: (current_password: string, new_password: string, token: string) =>
+      request<void>(
+        "/api/v1/auth/change-password",
+        {
+          method: "POST",
+          body: JSON.stringify({ current_password, new_password }),
+        },
+        token
+      ),
+
     refresh: (token: string) =>
       request<TokenResponse>("/api/v1/auth/refresh", {
         method: "POST",

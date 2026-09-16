@@ -6,6 +6,7 @@ from repositories.app_setting_repository import AppSettingRepository
 from repositories.password_reset_token_repository import PasswordResetTokenRepository
 from repositories.user_repository import UserRepository
 from schemas.user import UserRegister
+from models.user import User
 from core.security import (
     create_access_token,
     decode_token_allow_expired,
@@ -85,3 +86,9 @@ class AuthService:
 
         await self.repo.set_password(user, get_password_hash(new_password))
         await self.token_repo.mark_used(reset_token)
+
+    async def change_password(self, user: User, current_password: str, new_password: str) -> None:
+        if not verify_password(current_password, user.hashed_password):
+            raise BadRequestException("La contraseña actual es incorrecta")
+
+        await self.repo.set_password(user, get_password_hash(new_password))
