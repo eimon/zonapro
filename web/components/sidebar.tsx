@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  HardHat,
   LayoutDashboard,
   Layers,
   LogOut,
@@ -46,12 +47,14 @@ const ADMIN_NAV_ITEMS = [
   { href: "/dashboard/usuarios", icon: Users, label: "Usuarios" },
 ];
 
-// Insumos + Cotizar Servicios live in their own group, separated from the
-// rest of the top menu — they're a distinct workflow (materials/labor
-// quotes) rather than the storefront-facing catalog/order items above.
+// Insumos + Cotizar Servicios + Cotizaciones construcción live in their own
+// group, separated from the rest of the top menu — they're distinct
+// workflows (materials/labor quotes) rather than the storefront-facing
+// catalog/order items above.
 const SERVICIOS_NAV_ITEMS = [
   { href: "/dashboard/insumos", icon: Boxes, label: "Insumos" },
   { href: "/dashboard/cotizaciones-servicios", icon: Wrench, label: "Cotizar Servicios" },
+  { href: "/dashboard/cotizaciones-construccion", icon: HardHat, label: "Cotizaciones construcción" },
 ];
 
 const BOTTOM_ITEMS = [

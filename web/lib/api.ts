@@ -45,7 +45,7 @@ export type PackageComplexity = "basico" | "medio" | "avanzado";
 export type ConsultationType = "product" | "package" | "free_form";
 export type ConsultationStatus = "pendiente" | "en_proceso" | "cerrada";
 export type QuoteStatus = "borrador" | "enviada" | "aprobada" | "rechazada" | "vencida";
-export type QuoteType = "productos" | "servicios";
+export type QuoteType = "productos" | "servicios" | "construccion";
 export type QuoteItemKind = "product" | "supply" | "service";
 export type InstallationCostType = "fixed" | "percentage";
 export type IvaRate = "0" | "10.5" | "21";
@@ -247,7 +247,12 @@ export type Quote = {
 };
 
 export type DashboardQuotesByStatus = { status: QuoteStatus; count: number };
-export type DashboardQuotesPerDay = { date: string; productos: number; servicios: number };
+export type DashboardQuotesPerDay = {
+  date: string;
+  productos: number;
+  servicios: number;
+  construccion: number;
+};
 export type DashboardLowStockVariant = {
   variant_id: string;
   product_id: string;

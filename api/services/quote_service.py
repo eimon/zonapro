@@ -21,16 +21,19 @@ VALID_TRANSITIONS: dict[QuoteStatus, list[QuoteStatus]] = {
     QuoteStatus.vencida: [],
 }
 
-# Both quote types allow the same set of item kinds — the productos and
-# servicios flows are distinguished by page/branding/listing, not by which
-# item kinds they may contain. Kept as a per-quote_type map (rather than a
-# flat set) so _assert_item_kind_allowed stays a fail-closed guard for any
-# future quote_type that shouldn't inherit this default.
+# All quote types allow the same set of item kinds — productos, servicios
+# and construccion flows are distinguished by page/branding/listing, not by
+# which item kinds they may contain. Kept as a per-quote_type map (rather
+# than a flat set) so _assert_item_kind_allowed stays a fail-closed guard for
+# any future quote_type that shouldn't inherit this default.
 ALLOWED_ITEM_KINDS: dict[QuoteType, frozenset[QuoteItemKind]] = {
     QuoteType.productos: frozenset(
         {QuoteItemKind.product, QuoteItemKind.supply, QuoteItemKind.service}
     ),
     QuoteType.servicios: frozenset(
+        {QuoteItemKind.product, QuoteItemKind.supply, QuoteItemKind.service}
+    ),
+    QuoteType.construccion: frozenset(
         {QuoteItemKind.product, QuoteItemKind.supply, QuoteItemKind.service}
     ),
 }
@@ -72,9 +75,9 @@ def _validate_installation_cost(
 ) -> None:
     if cost_type is None:
         return
-    if quote_type == QuoteType.servicios:
+    if quote_type in (QuoteType.servicios, QuoteType.construccion):
         raise BadRequestException(
-            "Las cotizaciones de servicios no llevan costo de instalación"
+            f"Las cotizaciones de {quote_type.value} no llevan costo de instalación"
         )
     if cost_value is None:
         raise BadRequestException("Debés indicar un valor para el costo de instalación")

@@ -28,6 +28,7 @@ class QuoteItemKind(str, Enum):
 class QuoteType(str, Enum):
     productos = "productos"
     servicios = "servicios"
+    construccion = "construccion"
 
 
 class QuoteStatus(str, Enum):

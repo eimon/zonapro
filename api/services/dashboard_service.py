@@ -51,7 +51,7 @@ class DashboardService:
         today = datetime.now(timezone.utc).date()
         days = [today - timedelta(days=i) for i in range(DAYS_WINDOW - 1, -1, -1)]
         counts: dict[date, dict[str, int]] = {
-            d: {"productos": 0, "servicios": 0} for d in days
+            d: {"productos": 0, "servicios": 0, "construccion": 0} for d in days
         }
         for day, quote_type, count in rows:
             if day not in counts:
@@ -61,6 +61,11 @@ class DashboardService:
                 counts[day][key] += count
 
         return [
-            QuotesPerDay(date=d, productos=counts[d]["productos"], servicios=counts[d]["servicios"])
+            QuotesPerDay(
+                date=d,
+                productos=counts[d]["productos"],
+                servicios=counts[d]["servicios"],
+                construccion=counts[d]["construccion"],
+            )
             for d in days
         ]

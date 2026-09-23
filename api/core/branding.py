@@ -60,9 +60,20 @@ BRANDING_SERVICIOS = BrandingBundle(
     cuit="20-33215143-7",
 )
 
+BRANDING_CONSTRUCCION = BrandingBundle(
+    company_name="AE Construcciones",
+    tagline="",
+    email="aeconstruccionesangostura@gmail.com",
+    phones=["294-4555180"],
+    address="Villa La Angostura, Neuquén",
+    accent_color="#081d36",
+    logo_base64=_load_logo("logo_ae.png") or LOGO_BASE64,  # degrade, never a blank header
+)
+
 BRANDING_BY_QUOTE_TYPE = {
     QuoteType.productos: BRANDING_PRODUCTOS,
     QuoteType.servicios: BRANDING_SERVICIOS,
+    QuoteType.construccion: BRANDING_CONSTRUCCION,
 }
 
 

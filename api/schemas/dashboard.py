@@ -14,6 +14,7 @@ class QuotesPerDay(BaseModel):
     date: date
     productos: int
     servicios: int
+    construccion: int = 0
 
 
 class LowStockVariant(BaseModel):
