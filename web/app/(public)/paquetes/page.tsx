@@ -1,55 +1,84 @@
-import { api, Package } from "@/lib/api";
+import { api, type Package } from "@/lib/api";
 import Link from "next/link";
+import { PackageImageMosaic } from "@/components/package-image-mosaic";
+import { formatMoney } from "@/lib/format";
 
-const complexityLabel: Record<string, string> = {
-  basico: "Básico",
-  medio: "Medio",
-  avanzado: "Avanzado",
-};
+export const revalidate = 60;
 
-const complexityColor: Record<string, string> = {
-  basico: "bg-brand-blue/10 text-brand-blue border border-brand-blue/20",
-  medio: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20",
-  avanzado: "bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20",
-};
+function PackageCard({ pkg }: { pkg: Package }) {
+  const discount = parseFloat(pkg.discount_percent);
+  return (
+    <Link
+      href={`/paquetes/${pkg.id}`}
+      className="group flex flex-col h-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-[0_6px_20px_-8px_rgba(24,24,27,0.18)] dark:hover:shadow-none rounded-2xl overflow-hidden transition-[border-color,box-shadow] duration-150"
+    >
+      <div className="relative aspect-[4/3] bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+        <PackageImageMosaic
+          images={pkg.items.map((item) => item.image_url)}
+          alt={pkg.name}
+          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+        />
+        {discount > 0 && (
+          <span className="absolute top-3 right-3 bg-orange-700 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+            -{discount.toLocaleString("es-AR", { maximumFractionDigits: 0 })}%
+          </span>
+        )}
+      </div>
+      <div className="flex flex-col flex-1 gap-1.5 px-5 pt-4 pb-5">
+        <h2 className="text-base font-semibold text-zinc-900 dark:text-white leading-snug">{pkg.name}</h2>
+        {pkg.description && (
+          <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed line-clamp-2">{pkg.description}</p>
+        )}
+        <div className="flex-1" />
+        <div className="flex items-end gap-2 pt-3">
+          <div className="flex flex-col">
+            <span className="text-xs text-zinc-400 dark:text-zinc-500 line-through">{formatMoney(pkg.list_price)}</span>
+            <span className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white tabular-nums">
+              {formatMoney(pkg.final_price)}
+            </span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              Precio sin impuestos: {formatMoney(pkg.final_price_net)}
+            </span>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 export default async function PaquetesPage() {
   const packages: Package[] = await api.packages.list();
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-16">
-      <h1 className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-white mb-8">
-        Paquetes de Instalación
-      </h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {packages.map((pkg) => (
-          <Link
-            key={pkg.id}
-            href={`/paquetes/${pkg.id}`}
-            className="block bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/30 rounded-2xl p-6 transition-all duration-200"
-          >
-            <div className="flex items-start justify-between mb-2 gap-2">
-              <h2 className="text-base font-semibold text-zinc-900 dark:text-white">{pkg.name}</h2>
-              <span
-                className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${complexityColor[pkg.complexity] ?? "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"}`}
-              >
-                {complexityLabel[pkg.complexity] ?? pkg.complexity}
-              </span>
-            </div>
-            {pkg.description && (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3 line-clamp-2">{pkg.description}</p>
-            )}
-            <p className="mt-2 font-bold text-zinc-900 dark:text-white tabular-nums">
-              Desde ${Number(pkg.base_price).toLocaleString("es-AR")}
-            </p>
-          </Link>
-        ))}
-        {packages.length === 0 && (
-          <p className="col-span-full text-center text-zinc-500 py-12">
-            No hay paquetes disponibles por el momento.
-          </p>
-        )}
+    <div className="max-w-[1312px] mx-auto px-6 py-9 lg:px-16">
+      <nav aria-label="Ruta" className="flex gap-2 text-[13px] text-zinc-500 dark:text-zinc-400 mb-5">
+        <Link href="/" className="hover:text-zinc-700 dark:hover:text-zinc-200">
+          Inicio
+        </Link>
+        <span aria-hidden="true">/</span>
+        <Link href="/productos" className="hover:text-zinc-700 dark:hover:text-zinc-200">
+          Tienda
+        </Link>
+        <span aria-hidden="true">/</span>
+        <span className="text-zinc-900 dark:text-white">Paquetes</span>
+      </nav>
+
+      <div className="flex flex-col gap-1.5 mb-10">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white">Paquetes promocionales</h1>
+        <p className="text-[15px] text-zinc-600 dark:text-zinc-400 max-w-xl">Combos de productos e insumos a precio especial.</p>
       </div>
+
+      {packages.length === 0 ? (
+        <p className="text-center text-zinc-500 py-20">No hay paquetes disponibles por el momento.</p>
+      ) : (
+        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 list-none m-0 p-0">
+          {packages.map((pkg) => (
+            <li key={pkg.id}>
+              <PackageCard pkg={pkg} />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
