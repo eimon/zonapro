@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { SupplyImageField } from "@/components/supply-image-field";
 import { ArrowLeft, Boxes, Layers, Plus, Trash2 } from "lucide-react";
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
@@ -22,6 +23,12 @@ const variantSchema = z.object({
 const baseSchema = z.object({
   name: z.string().min(1, "Nombre requerido"),
   description: z.string().optional(),
+  image_url: z
+    .string()
+    .refine((v) => v === "" || v.startsWith("/") || /^https?:\/\//i.test(v), {
+      message: "URL inválida",
+    })
+    .optional(),
   iva_rate: z.enum(["0", "10.5", "21"]),
   price_input_mode: z.enum(["net", "final"]),
   // simple mode
@@ -183,6 +190,7 @@ export default function NuevoInsumoPage() {
         {
           name: data.name,
           description: data.description || null,
+          image_url: data.image_url || null,
           iva_rate: data.iva_rate,
           variants,
         },
@@ -238,6 +246,16 @@ export default function NuevoInsumoPage() {
               placeholder="Descripción del insumo (opcional)"
               className={`${inputClass} resize-none`}
               {...register("description")}
+            />
+          </InputField>
+
+          <InputField label="Imagen" error={errors.image_url?.message}>
+            <Controller
+              control={control}
+              name="image_url"
+              render={({ field }) => (
+                <SupplyImageField value={field.value ?? ""} onChange={field.onChange} />
+              )}
             />
           </InputField>
 

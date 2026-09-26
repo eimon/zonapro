@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, type Supply, type SupplyImportReport } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import Image from "next/image";
 import Link from "next/link";
 import { Boxes, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { CsvPanel } from "@/components/csv-panel";
@@ -83,7 +84,11 @@ function SupplyCard({
     <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="relative w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 overflow-hidden">
-          <Boxes className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+          {supply.image_url ? (
+            <Image src={supply.image_url} alt={supply.name} fill sizes="40px" className="object-cover" />
+          ) : (
+            <Boxes className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-medium text-zinc-900 dark:text-white truncate">{supply.name}</p>
@@ -340,7 +345,17 @@ export default function InsumosPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="relative w-9 h-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 overflow-hidden">
-                          <Boxes className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                          {supply.image_url ? (
+                            <Image
+                              src={supply.image_url}
+                              alt={supply.name}
+                              fill
+                              sizes="36px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <Boxes className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                          )}
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium text-zinc-900 dark:text-white truncate">
