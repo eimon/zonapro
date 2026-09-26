@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Any
-from pydantic import BaseModel, EmailStr, model_validator
+from pydantic import BaseModel, EmailStr, Field, model_validator
 from models.enums import QuoteItemKind, QuoteStatus, QuoteType, InstallationCostType
 
 
@@ -17,12 +17,20 @@ class QuoteItemCreate(BaseModel):
     service_description: Optional[str] = None
     hours: Optional[Decimal] = None
     # common
-    quantity: int = 1
+    quantity: Decimal = Field(default=Decimal("1"), gt=0, max_digits=10, decimal_places=2)
     unit_price: Decimal
     # Only honored for kind=service; ignored server-side for kind=product and
     # kind=supply, where it's always derived from the product's/supply's own
     # iva_rate.
     iva_rate: Optional[Decimal] = None
+
+    @model_validator(mode="after")
+    def product_quantity_is_whole(self) -> "QuoteItemCreate":
+        # Fractional quantities only make sense for supplies (meters of cable,
+        # liters…) and manual concepts; a product is always a whole unit.
+        if self.kind == QuoteItemKind.product and self.quantity != self.quantity.to_integral_value():
+            raise ValueError("La cantidad de un producto debe ser un número entero")
+        return self
 
 
 class QuoteItemUpdate(BaseModel):
@@ -31,7 +39,7 @@ class QuoteItemUpdate(BaseModel):
     # deliberately absent here and stay immutable via this endpoint; use
     # delete+re-add to change a catalog-linked item.
     service_description: Optional[str] = None
-    quantity: Optional[int] = None
+    quantity: Optional[Decimal] = Field(default=None, gt=0, max_digits=10, decimal_places=2)
     unit_price: Optional[Decimal] = None
     iva_rate: Optional[Decimal] = None
 
@@ -49,7 +57,9 @@ class QuoteItemResponse(BaseModel):
     service_description: Optional[str]
     hours: Optional[Decimal]
     hourly_rate_snapshot: Optional[Decimal]
-    quantity: int
+    # float, not Decimal: Pydantic serializes Decimal as a JSON string, and
+    # the web consumes quantity as a number.
+    quantity: float
     unit_price: Decimal
     subtotal: Decimal
     iva_rate: Decimal

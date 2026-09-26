@@ -357,7 +357,7 @@
               <div class="item-meta">IVA {{ item.iva_rate }}% (${{ item.display_iva_amount | ars }})</div>
             {% endif %}
           </td>
-          <td class="right">{{ item.quantity }}</td>
+          <td class="right">{{ item.quantity | qty }}</td>
           <td class="right">${{ item.display_unit_price | ars }}</td>
           <td class="right">${{ item.display_subtotal | ars }}</td>
         </tr>

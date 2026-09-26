@@ -107,7 +107,7 @@ class QuoteRepository(BaseRepository[Quote]):
         service_description: str | None = None,
         hours: Decimal | None = None,
         hourly_rate_snapshot: Decimal | None = None,
-        quantity: int = 1,
+        quantity: Decimal = Decimal("1"),
         iva_rate: Decimal = Decimal("0"),
     ) -> QuoteItem:
         obj = QuoteItem(

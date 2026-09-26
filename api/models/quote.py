@@ -118,7 +118,7 @@ class QuoteItem(UUIDMixin, TimestampMixin, Base):
     hourly_rate_snapshot = Column(Numeric(12, 2), nullable=True)
 
     # Common
-    quantity = Column(Integer, nullable=False, default=1)
+    quantity = Column(Numeric(10, 2), nullable=False, default=1)
     unit_price = Column(Numeric(12, 2), nullable=False)
     subtotal = Column(Numeric(12, 2), nullable=False)
     iva_rate = Column(Numeric(4, 2), nullable=False, default=0)

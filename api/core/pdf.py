@@ -28,9 +28,18 @@ def format_ars(value) -> str:
     return formatted.translate(str.maketrans(",.", ".,"))
 
 
+def format_quantity(value) -> str:
+    """es-AR quantity without trailing zeros: 2 -> '2', 1.50 -> '1,5'."""
+    number = Decimal(value).normalize()
+    if number == number.to_integral_value():
+        return f"{number:,.0f}".replace(",", ".")
+    return format(number, "f").replace(".", ",")
+
+
 def generate_quote_pdf(quote: Quote) -> bytes:
     env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)))
     env.filters["ars"] = format_ars
+    env.filters["qty"] = format_quantity
     template = env.get_template("quote_pdf.html")
 
     brand = resolve_branding(quote.quote_type)
