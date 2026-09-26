@@ -21,7 +21,7 @@ class ProductRepository(BaseRepository[Product]):
     async def get_with_variants(self, id: uuid.UUID) -> Product | None:
         result = await self.db.execute(
             select(Product)
-            .options(selectinload(Product.variants))
+            .options(selectinload(Product.variants), selectinload(Product.category))
             .where(Product.id == id, Product.deleted_at.is_(None))
         )
         return result.scalars().first()
@@ -35,7 +35,7 @@ class ProductRepository(BaseRepository[Product]):
     ) -> list[Product]:
         query = (
             select(Product)
-            .options(selectinload(Product.variants))
+            .options(selectinload(Product.variants), selectinload(Product.category))
             .where(Product.deleted_at.is_(None), Product.is_active.is_(True))
         )
         if category_id is not None:
@@ -43,6 +43,29 @@ class ProductRepository(BaseRepository[Product]):
         if made_to_order is not None:
             query = query.where(Product.made_to_order == made_to_order)
         query = query.offset(skip).limit(limit)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_catalog_products(self) -> list[Product]:
+        """Active, non-deleted products with their active, non-deleted
+        variants and category eager-loaded — the raw material for the public
+        catalog facet/filter computation, which happens in the service.
+
+        This loads the whole active catalog into memory rather than pushing
+        filtering/faceting into SQL. For a B2B catalog of this size (tens to
+        low hundreds of products) that's simpler to get right than a
+        hand-rolled disjunctive-facet SQL query, at negligible cost. If the
+        catalog grows large enough for this to matter, revisit with a
+        CTE-based aggregate query.
+        """
+        query = (
+            select(Product)
+            .options(
+                selectinload(Product.variants),
+                selectinload(Product.category),
+            )
+            .where(Product.deleted_at.is_(None), Product.is_active.is_(True))
+        )
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
