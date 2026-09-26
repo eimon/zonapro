@@ -13,7 +13,19 @@ router = APIRouter(prefix=f"{settings.API_V1_STR}/packages", tags=["packages"])
 
 @router.get("/", response_model=list[PackageResponse])
 async def list_packages(db: AsyncSession = Depends(get_db)):
-    return await PackageService(db).get_all()
+    """Public storefront listing — active + available packages only."""
+    return await PackageService(db).get_all_public()
+
+
+# Static path registered before /{package_id} so "admin" is never captured
+# as a package_id.
+@router.get("/admin", response_model=list[PackageResponse])
+async def list_packages_admin(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(has_role(Permission.PACKAGE_MANAGE)),
+):
+    """Dashboard listing — every non-deleted package, active or not."""
+    return await PackageService(db).get_all_admin()
 
 
 @router.post("/", response_model=PackageResponse, status_code=201)
@@ -30,7 +42,20 @@ async def get_package(
     package_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    return await PackageService(db).get_by_id(package_id)
+    """Public detail — 404 if inactive or unavailable."""
+    return await PackageService(db).get_by_id_public(package_id)
+
+
+@router.get("/{package_id}/admin", response_model=PackageResponse)
+async def get_package_admin(
+    package_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(has_role(Permission.PACKAGE_MANAGE)),
+):
+    """Dashboard detail — visible regardless of is_active/is_available, so
+    the edit form can load a package that's currently hidden from the
+    storefront."""
+    return await PackageService(db).get_by_id_admin(package_id)
 
 
 @router.patch("/{package_id}", response_model=PackageResponse)

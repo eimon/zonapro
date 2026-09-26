@@ -40,6 +40,7 @@ class SupplyCreate(BaseModel):
     name: str
     description: str | None = None
     iva_rate: IvaRate = IvaRate.iva_21
+    image_url: str | None = None
     is_active: bool = True
     variants: list[SupplyVariantCreate] = Field(min_length=1)
 
@@ -48,6 +49,7 @@ class SupplyUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     iva_rate: IvaRate | None = None
+    image_url: str | None = None
     is_active: bool | None = None
 
 
@@ -56,6 +58,7 @@ class SupplyResponse(BaseModel):
     name: str
     description: str | None
     iva_rate: IvaRate
+    image_url: str | None
     is_active: bool
     variants: list[SupplyVariantResponse] = []
 

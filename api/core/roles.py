@@ -49,6 +49,7 @@ role_hierarchy: dict[str, list[Permission]] = {
         Permission.QUOTE_CREATE,
         Permission.QUOTE_VIEW_OWN,
         Permission.ORDER_VIEW_ALL,
+        Permission.PACKAGE_MANAGE,
         Permission.CONSULTATION_MANAGE,
     ],
     "CLIENTE": [

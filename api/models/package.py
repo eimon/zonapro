@@ -1,11 +1,10 @@
-import uuid
 from sqlalchemy import Column, String, Text, Boolean, Integer, Numeric, CheckConstraint, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+from sqlalchemy import Enum as SAEnum
 from core.database import Base
 from models.base import UUIDMixin, TimestampMixin, SoftDeleteMixin
-from models.enums import PackageComplexity
-from sqlalchemy import Enum as SAEnum
+from models.enums import PackagePricingMode, PackageItemKind
 
 
 class Package(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
@@ -14,45 +13,50 @@ class Package(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
     name = Column(String(200), nullable=False)
     slug = Column(String(220), nullable=False, unique=True, index=True)
     description = Column(Text, nullable=True)
-    complexity = Column(SAEnum(PackageComplexity), nullable=False)
-    base_price = Column(Numeric(12, 2), nullable=False, default=0)
+    # Admin picks one of these two and the other is always derived at read
+    # time from live catalog prices (see core/package_pricing.py) — the
+    # chosen mode+value stays fixed even as catalog prices change.
+    pricing_mode = Column(SAEnum(PackagePricingMode), nullable=False)
+    pricing_value = Column(Numeric(12, 2), nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
 
-    option_groups = relationship(
-        "PackageOptionGroup",
+    items = relationship(
+        "PackageItem",
         back_populates="package",
         cascade="all, delete-orphan",
-        order_by="PackageOptionGroup.display_order",
+        order_by="PackageItem.display_order",
     )
 
     __table_args__ = (
-        CheckConstraint("base_price >= 0", name="ck_package_base_price_non_negative"),
+        CheckConstraint("pricing_value > 0", name="ck_package_pricing_value_positive"),
     )
 
 
-class PackageOptionGroup(UUIDMixin, TimestampMixin, Base):
-    __tablename__ = "package_option_groups"
+class PackageItem(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "package_items"
 
     package_id = Column(UUID(as_uuid=True), ForeignKey("packages.id"), nullable=False, index=True)
-    name = Column(String(200), nullable=False)
-    display_order = Column(Integer, nullable=False, default=0)
-
-    package = relationship("Package", back_populates="option_groups")
-    options = relationship(
-        "PackageOption",
-        back_populates="group",
-        cascade="all, delete-orphan",
-        order_by="PackageOption.display_order",
+    kind = Column(SAEnum(PackageItemKind), nullable=False)
+    # Exactly one of these two is set, matching `kind` — enforced by
+    # ck_package_item_kind_matches_variant below.
+    product_variant_id = Column(
+        UUID(as_uuid=True), ForeignKey("product_variants.id"), nullable=True, index=True
     )
-
-
-class PackageOption(UUIDMixin, TimestampMixin, Base):
-    __tablename__ = "package_options"
-
-    group_id = Column(UUID(as_uuid=True), ForeignKey("package_option_groups.id"), nullable=False, index=True)
-    label = Column(String(200), nullable=False)
-    price_delta = Column(Numeric(12, 2), nullable=False, default=0)
-    is_default = Column(Boolean, nullable=False, default=False)
+    supply_variant_id = Column(
+        UUID(as_uuid=True), ForeignKey("supply_variants.id"), nullable=True, index=True
+    )
+    quantity = Column(Numeric(10, 2), nullable=False)
     display_order = Column(Integer, nullable=False, default=0)
 
-    group = relationship("PackageOptionGroup", back_populates="options")
+    package = relationship("Package", back_populates="items")
+    product_variant = relationship("ProductVariant", foreign_keys=[product_variant_id])
+    supply_variant = relationship("SupplyVariant", foreign_keys=[supply_variant_id])
+
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_package_item_quantity_positive"),
+        CheckConstraint(
+            "(kind = 'product' AND product_variant_id IS NOT NULL AND supply_variant_id IS NULL) OR "
+            "(kind = 'supply' AND supply_variant_id IS NOT NULL AND product_variant_id IS NULL)",
+            name="ck_package_item_kind_matches_variant",
+        ),
+    )

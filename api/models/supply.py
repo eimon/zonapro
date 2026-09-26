@@ -13,6 +13,7 @@ class Supply(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
     name = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     iva_rate = Column(SAEnum(IvaRate), nullable=False, default=IvaRate.iva_21)
+    image_url = Column(String(500), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
 
     variants = relationship("SupplyVariant", back_populates="supply", cascade="all, delete-orphan")
