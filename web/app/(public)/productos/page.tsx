@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { Search as SearchIcon } from "lucide-react";
 import { api } from "@/lib/api";
 import { parseStoreFilters, buildStoreQuery } from "@/lib/store-filters";
@@ -18,7 +19,8 @@ interface Props {
 
 export default async function ProductosPage({ searchParams }: Props) {
   const sp = await searchParams;
-  const filters = parseStoreFilters(sp);
+  const cookieStore = await cookies();
+  const filters = parseStoreFilters(sp, cookieStore.get("store_currency")?.value);
 
   const [catalog, packages] = await Promise.all([
     api.products.catalog({ ...filters, page_size: PAGE_SIZE }),
@@ -26,12 +28,17 @@ export default async function ProductosPage({ searchParams }: Props) {
   ]);
 
   // Promo section visibility: show when no category filter is active, or
-  // when at least one selected category contains a product from the package.
+  // when at least one selected category contains a product from the package
+  // — AND only packages actually available in the selected currency (every
+  // item priced in it, and — for final_price mode — a value set for it).
   const activeCategorySet = new Set(filters.category);
-  const visiblePackages =
-    activeCategorySet.size === 0
-      ? packages
-      : packages.filter((pkg) => pkg.items.some((item) => item.category_slug && activeCategorySet.has(item.category_slug)));
+  const visiblePackages = packages
+    .filter((pkg) => pkg.prices[filters.currency] !== null)
+    .filter(
+      (pkg) =>
+        activeCategorySet.size === 0 ||
+        pkg.items.some((item) => item.category_slug && activeCategorySet.has(item.category_slug))
+    );
 
   const totalPages = Math.max(1, Math.ceil(catalog.total / PAGE_SIZE));
   const hasActiveFilters = filters.category.length + filters.availability.length + filters.price.length > 0 || !!filters.q;
@@ -56,13 +63,13 @@ export default async function ProductosPage({ searchParams }: Props) {
 
         <StoreShell facets={catalog.facets} filters={filters} total={catalog.total}>
           <div className="flex flex-col gap-8">
-            {visiblePackages.length > 0 && <PromoPackages packages={visiblePackages} />}
+            {visiblePackages.length > 0 && <PromoPackages packages={visiblePackages} currency={filters.currency} />}
 
             {catalog.items.length > 0 ? (
               <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 list-none m-0 p-0">
                 {catalog.items.map((item) => (
                   <li key={item.id}>
-                    <ProductCard item={item} />
+                    <ProductCard item={item} currency={filters.currency} />
                   </li>
                 ))}
               </ul>
@@ -77,7 +84,7 @@ export default async function ProductosPage({ searchParams }: Props) {
                 </p>
                 {hasActiveFilters && (
                   <Link
-                    href="/productos"
+                    href={`/productos${buildStoreQuery({ currency: filters.currency })}`}
                     className="mt-2 h-11 px-[18px] rounded-[10px] bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium flex items-center"
                   >
                     Limpiar filtros

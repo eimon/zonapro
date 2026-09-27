@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Package as PackageIcon } from "lucide-react";
-import type { CatalogProductItem, Package } from "@/lib/api";
+import type { CatalogProductItem, Currency, Package } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
 import { PackageImageMosaic } from "@/components/package-image-mosaic";
 
@@ -10,8 +10,11 @@ export type RelatedEntry =
   | { kind: "product"; product: CatalogProductItem };
 
 // "También te puede interesar" grid — mixes package promo cards and plain
-// product cards in one 4-up grid, matching the approved design.
-export function RelatedGrid({ entries }: { entries: RelatedEntry[] }) {
+// product cards in one 4-up grid, matching the approved design. Package
+// entries whose `prices[currency]` is null (not available in the selected
+// currency) are skipped — the caller is expected to have already filtered
+// these out, but this is a defensive no-op if not.
+export function RelatedGrid({ entries, currency }: { entries: RelatedEntry[]; currency: Currency }) {
   if (entries.length === 0) return null;
 
   return (
@@ -19,11 +22,13 @@ export function RelatedGrid({ entries }: { entries: RelatedEntry[] }) {
       {entries.map((entry) => {
         if (entry.kind === "package") {
           const pkg = entry.package;
-          const discount = parseFloat(pkg.discount_percent);
+          const priceInfo = pkg.prices[currency];
+          if (!priceInfo) return null;
+          const discount = parseFloat(priceInfo.discount_percent);
           return (
             <li key={`pkg-${pkg.id}`}>
               <Link
-                href={`/paquetes/${pkg.id}`}
+                href={`/paquetes/${pkg.id}?currency=${currency}`}
                 className="group flex flex-col h-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 rounded-[14px] overflow-hidden transition-colors duration-150"
               >
                 <div className="relative h-[150px]">
@@ -37,10 +42,10 @@ export function RelatedGrid({ entries }: { entries: RelatedEntry[] }) {
                 <div className="flex flex-col gap-1 px-4 py-3.5">
                   <span className="text-[15px] font-semibold text-zinc-900 dark:text-white truncate">{pkg.name}</span>
                   <span className="text-[15px] font-bold text-zinc-900 dark:text-white tabular-nums">
-                    {formatMoney(pkg.final_price)}
+                    {formatMoney(priceInfo.final_price, currency)}
                   </span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Precio sin impuestos: {formatMoney(pkg.final_price_net)}
+                    Precio sin impuestos: {formatMoney(priceInfo.final_price_net, currency)}
                   </span>
                 </div>
               </Link>
@@ -52,7 +57,7 @@ export function RelatedGrid({ entries }: { entries: RelatedEntry[] }) {
         return (
           <li key={`prod-${product.id}`}>
             <Link
-              href={`/productos/${product.id}`}
+              href={`/productos/${product.id}?currency=${currency}`}
               className="group flex flex-col h-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 rounded-[14px] overflow-hidden transition-colors duration-150"
             >
               <div className="relative h-[150px] bg-zinc-100 dark:bg-zinc-800">
@@ -67,10 +72,10 @@ export function RelatedGrid({ entries }: { entries: RelatedEntry[] }) {
               <div className="flex flex-col gap-1 px-4 py-3.5">
                 <span className="text-[15px] font-semibold text-zinc-900 dark:text-white truncate">{product.name}</span>
                 <span className="text-[15px] font-bold text-zinc-900 dark:text-white tabular-nums">
-                  {formatMoney(product.from_price)}
+                  {formatMoney(product.from_price, currency)}
                 </span>
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Precio sin impuestos: {formatMoney(product.from_price_net)}
+                  Precio sin impuestos: {formatMoney(product.from_price_net, currency)}
                 </span>
               </div>
             </Link>

@@ -1,3 +1,7 @@
+import { CATALOG_DEFAULT_CURRENCY, type Currency } from "./format";
+
+export type { Currency } from "./format";
+
 const API_URL =
   typeof window === "undefined"
     ? (process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")
@@ -95,9 +99,15 @@ export type ProductVariant = {
   sku: string;
   name: string;
   attributes: Record<string, unknown> | null;
-  price: string; // net
+  // Independent, manually-edited NET prices per currency — never
+  // auto-converted. At least one is set.
+  price_ars: string | null;
+  price_usd: string | null;
   stock_qty: number;
-  final_price: string; // net + IVA, computed from the parent product's iva_rate
+  // net + IVA, computed from the parent product's iva_rate. Mirrors
+  // price_ars/price_usd — null when that currency has no price.
+  final_price_ars: string | null;
+  final_price_usd: string | null;
 };
 
 export type Product = {
@@ -155,6 +165,7 @@ export type CatalogResponse = {
 };
 
 export type CatalogParams = {
+  currency?: Currency;
   q?: string;
   category?: string[];
   availability?: string[];
@@ -163,6 +174,11 @@ export type CatalogParams = {
   page?: number;
   page_size?: number;
 };
+
+// Mirrors api/schemas/quote.py's DEFAULT_QUOTE_CURRENCY — USD, to match the
+// store's default and the fact that only USD prices exist right after the
+// pricing migration.
+export const DEFAULT_QUOTE_CURRENCY: Currency = "USD";
 
 export type ImportRowError = { row_number: number | null; identifier: string | null; message: string };
 export type ImportReport = {
@@ -181,9 +197,11 @@ export type SupplyVariant = {
   sku: string;
   name: string;
   attributes: Record<string, unknown> | null;
-  price: string; // net
+  price_ars: string | null;
+  price_usd: string | null;
   stock_qty: number;
-  final_price: string; // net + IVA, computed from the parent supply's iva_rate
+  final_price_ars: string | null;
+  final_price_usd: string | null;
 };
 
 export type Supply = {
@@ -216,20 +234,35 @@ export type PackageItem = {
   sku: string;
   // The parent product's/supply's IVA rate.
   iva_rate: IvaRate;
-  // IVA-inclusive (gross) — the customer-facing unit price/subtotal.
-  unit_price: string;
-  // NET (no IVA) — the stored/pricing basis, shown as the muted "sin
-  // impuestos" detail.
-  unit_price_net: string;
+  // Per-currency unit/line prices — IVA-inclusive (gross) and NET, mirroring
+  // ProductVariant.final_price_ars/usd. null when the item's variant has no
+  // price in that currency.
+  unit_price_ars: string | null;
+  unit_price_net_ars: string | null;
+  line_total_ars: string | null;
+  line_total_net_ars: string | null;
+  unit_price_usd: string | null;
+  unit_price_net_usd: string | null;
+  line_total_usd: string | null;
+  line_total_net_usd: string | null;
   quantity: number;
-  line_total: string;
-  line_total_net: string;
   image_url: string | null;
   // The parent product's category slug (product items only) — used to decide
   // whether a package's promo card should show under an active category filter.
   category_slug: string | null;
   // The parent product's id (product items only) — links a row to /productos/{id}.
   product_id: string | null;
+};
+
+// Computed, read-time-only pricing for one currency — present in
+// Package.prices[currency] only when the package is available in that
+// currency.
+export type PackagePriceInfo = {
+  list_price: string;
+  list_price_net: string;
+  final_price: string;
+  final_price_net: string;
+  discount_percent: string;
 };
 
 export type Package = {
@@ -239,15 +272,16 @@ export type Package = {
   description: string | null;
   is_active: boolean;
   pricing_mode: PackagePricingMode;
-  pricing_value: string;
-  // IVA-inclusive (gross) — the customer-facing main price everywhere.
-  list_price: string;
-  final_price: string;
-  // NET (no IVA) — the stored/pricing basis; final_price_net is shown as the
-  // muted "Precio sin impuestos" detail below final_price.
-  list_price_net: string;
-  final_price_net: string;
-  discount_percent: string;
+  // Only meaningful for pricing_mode="discount_percent" (applies to both
+  // currencies alike).
+  discount_percent: string | null;
+  // Only meaningful for pricing_mode="final_price" — either may be null.
+  pricing_value_ars: string | null;
+  pricing_value_usd: string | null;
+  // Computed at read time from live catalog prices — keyed by currency; a
+  // currency the package isn't available in maps to null (never omitted).
+  prices: Record<Currency, PackagePriceInfo | null>;
+  // True when available in at least one currency.
   is_available: boolean;
   items: PackageItem[];
 };
@@ -266,7 +300,9 @@ export type PackageInput = {
   description?: string | null;
   is_active: boolean;
   pricing_mode: PackagePricingMode;
-  pricing_value: number;
+  discount_percent?: number | null;
+  pricing_value_ars?: number | null;
+  pricing_value_usd?: number | null;
   items: PackageItemInput[];
 };
 
@@ -310,6 +346,9 @@ export type Quote = {
   id: string;
   title: string;
   quote_type: QuoteType;
+  // Single currency for the whole quote — locked once it has items (see
+  // QuoteCreate.currency / DEFAULT_QUOTE_CURRENCY below).
+  currency: Currency;
   client_name: string;
   client_email: string;
   client_phone: string | null;
@@ -354,7 +393,8 @@ export type DashboardStats = {
   active_products: number;
   active_supplies: number;
   approved_quotes_count: number;
-  approved_quotes_value: string;
+  // Never summed across currencies — one total per currency.
+  approved_quotes_value: Record<Currency, string>;
   pending_consultations: number;
   quotes_by_status: DashboardQuotesByStatus[];
   quotes_last_30_days: DashboardQuotesPerDay[];
@@ -456,6 +496,7 @@ export const api = {
     get: (id: string) => request<Product>(`/api/v1/products/${id}`),
     catalog: (params?: CatalogParams) => {
       const qs = new URLSearchParams();
+      qs.set("currency", params?.currency ?? CATALOG_DEFAULT_CURRENCY);
       if (params?.q) qs.set("q", params.q);
       for (const c of params?.category ?? []) qs.append("category", c);
       for (const a of params?.availability ?? []) qs.append("availability", a);
@@ -649,11 +690,13 @@ export const api = {
   },
 
   settings: {
-    getHourlyRate: () =>
-      request<{ key: string; value: string }>("/api/v1/settings/hourly-rate"),
-    setHourlyRate: (value: string, token: string) =>
-      request<{ key: string; value: string }>(
-        "/api/v1/settings/hourly-rate",
+    // One rate per currency — a servicios quote always uses the rate
+    // matching its own currency.
+    getHourlyRate: (currency: Currency) =>
+      request<{ key: string; currency: Currency; value: string }>(`/api/v1/settings/hourly-rate/${currency}`),
+    setHourlyRate: (currency: Currency, value: string, token: string) =>
+      request<{ key: string; currency: Currency; value: string }>(
+        `/api/v1/settings/hourly-rate/${currency}`,
         { method: "PATCH", body: JSON.stringify({ value }) },
         token,
       ),
