@@ -3,7 +3,13 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Any
 from pydantic import BaseModel, EmailStr, Field, model_validator
-from models.enums import QuoteItemKind, QuoteStatus, QuoteType, InstallationCostType
+from models.enums import QuoteItemKind, QuoteStatus, QuoteType, InstallationCostType, Currency
+
+# The quote-creation currency default. USD because after the pricing
+# migration only USD prices exist in the catalog by default — flip this one
+# constant (and CATALOG_DEFAULT_CURRENCY on the web) once ARS prices are
+# broadly populated.
+DEFAULT_QUOTE_CURRENCY = Currency.USD
 
 
 class QuoteItemCreate(BaseModel):
@@ -18,7 +24,12 @@ class QuoteItemCreate(BaseModel):
     hours: Optional[Decimal] = None
     # common
     quantity: Decimal = Field(default=Decimal("1"), gt=0, max_digits=10, decimal_places=2)
-    unit_price: Decimal
+    # Required for kind=service (manual concept lines) — for kind=product and
+    # kind=supply this is ignored server-side and always derived from the
+    # variant's price in the quote's own currency instead (rejecting with a
+    # BadRequest if that price is NULL), mirroring how iva_rate is already
+    # server-derived for those two kinds.
+    unit_price: Optional[Decimal] = None
     # Only honored for kind=service; ignored server-side for kind=product and
     # kind=supply, where it's always derived from the product's/supply's own
     # iva_rate.
@@ -30,6 +41,20 @@ class QuoteItemCreate(BaseModel):
         # liters…) and manual concepts; a product is always a whole unit.
         if self.kind == QuoteItemKind.product and self.quantity != self.quantity.to_integral_value():
             raise ValueError("La cantidad de un producto debe ser un número entero")
+        return self
+
+    @model_validator(mode="after")
+    def service_requires_unit_price(self) -> "QuoteItemCreate":
+        # Client-supplied unit_price is required for manual concept lines
+        # (kind=service) and for a manual, catalog-less product line
+        # (kind=product with no product_variant_id) — every other case
+        # (kind=product with a variant, or kind=supply, which always
+        # requires a variant) derives it server-side from the catalog.
+        needs_client_price = self.kind == QuoteItemKind.service or (
+            self.kind == QuoteItemKind.product and self.product_variant_id is None
+        )
+        if needs_client_price and self.unit_price is None:
+            raise ValueError("Este ítem requiere unit_price")
         return self
 
 
@@ -72,6 +97,9 @@ class QuoteCreate(BaseModel):
     # pages omit this and get the default; servicios pages send it
     # explicitly). Deliberately absent from QuoteUpdate — see below.
     quote_type: QuoteType = QuoteType.productos
+    # Set once at creation; locked once the quote has items (enforced
+    # service-side — see QuoteService.update).
+    currency: Currency = DEFAULT_QUOTE_CURRENCY
     title: str
     client_name: str
     client_email: EmailStr
@@ -94,6 +122,10 @@ class QuoteUpdate(BaseModel):
     # creation. update_data = model_dump(exclude_unset=True) can never carry
     # it into repo.update_quote(**update_data), so this is a structural
     # guarantee rather than a runtime guard.
+    # currency IS present here (unlike quote_type) because it may still be
+    # changed up until the first item is added — locked afterward, enforced
+    # in QuoteService.update.
+    currency: Optional[Currency] = None
     title: Optional[str] = None
     client_name: Optional[str] = None
     client_email: Optional[EmailStr] = None
@@ -113,6 +145,7 @@ class QuoteUpdate(BaseModel):
 class QuoteClientResponse(BaseModel):
     id: uuid.UUID
     quote_type: QuoteType
+    currency: Currency
     title: str
     client_name: str
     client_email: str

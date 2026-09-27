@@ -5,6 +5,12 @@ to supplies (no slug — `name` plays that role per design D1 — no
 category_slug/image_url/made_to_order). Shares primitives with
 `product_csv.py` via `csv_common.py` so the es-AR decimal rules and the
 CSV-formula-injection guard can't drift between the two catalogs.
+
+Pricing columns: `price_ars` / `price_usd` are the current contract (at
+least one required); the legacy single `price` column is still recognized
+on IMPORT ONLY as an alias for `price_usd`, ignored whenever `price_usd` is
+also present. Export never emits `price` anymore — see product_csv.py's
+docstring for the full rationale.
 """
 import json
 
@@ -28,10 +34,13 @@ COLUMNS = (
     "sku",
     "variant_name",
     "attributes",
-    "price",
+    "price_ars",
+    "price_usd",
+    "price",  # legacy alias for price_usd — import-only
     "price_input_mode",
     "stock_qty",
-    "final_price",
+    "final_price_ars",
+    "final_price_usd",
 )
 
 SUPPLY_COLUMNS = {
@@ -44,17 +53,20 @@ VARIANT_COLUMNS = {
     "sku",
     "variant_name",
     "attributes",
+    "price_ars",
+    "price_usd",
     "price",
     "price_input_mode",
     "stock_qty",
 }
-REQUIRED_NON_EMPTY = {"name", "sku", "variant_name", "price"}
+REQUIRED_NON_EMPTY = {"name", "sku", "variant_name"}
 CREATE_ONLY_REQUIRED = {"iva_rate"}
 
 # Columns that clear the field to NULL when the cell is present but empty.
 _NULLABLE_COLUMNS = {"description"}
-# NOT-NULL-with-default columns: an empty cell leaves the field untouched.
-_SKIP_ON_EMPTY_COLUMNS = {"is_active", "stock_qty", "iva_rate"}
+# NOT-NULL-with-default (or optional) columns: an empty cell leaves the field
+# untouched.
+_SKIP_ON_EMPTY_COLUMNS = {"is_active", "stock_qty", "iva_rate", "price_ars", "price_usd", "price"}
 
 _SUPPLY_FIELD_NAME = {
     "name": "name",
@@ -66,7 +78,9 @@ _VARIANT_FIELD_NAME = {
     "sku": "sku",
     "variant_name": "name",
     "attributes": "attributes",
-    "price": "price",
+    "price_ars": "price_ars",
+    "price_usd": "price_usd",
+    "price": "price_usd",  # legacy alias
     "price_input_mode": "price_input_mode",
     "stock_qty": "stock_qty",
 }
@@ -88,6 +102,9 @@ def map_row(row: dict, present: set[str]) -> tuple[dict, dict]:
     for col in present:
         if col not in SUPPLY_COLUMNS and col not in VARIANT_COLUMNS:
             continue  # resolution-only columns (supply_id, variant_id) — read directly by the caller
+
+        if col == "price" and "price_usd" in present:
+            continue  # legacy alias — ignored when price_usd is also present
 
         raw = (row.get(col) or "").strip()
         is_supply = col in SUPPLY_COLUMNS
@@ -124,7 +141,7 @@ def map_row(row: dict, present: set[str]) -> tuple[dict, dict]:
                 target[field_name] = int(raw)
             except ValueError:
                 raise RowError(f"stock_qty inválido: '{raw}'")
-        elif col == "price":
+        elif col in ("price_ars", "price_usd", "price"):
             target[field_name] = parse_decimal(raw)
         else:
             target[field_name] = raw
@@ -132,7 +149,7 @@ def map_row(row: dict, present: set[str]) -> tuple[dict, dict]:
     return supply_fields, variant_fields
 
 
-def serialize_row(supply, variant, final_price) -> list[str]:
+def serialize_row(supply, variant, final_price_ars, final_price_usd) -> list[str]:
     """Serialize one (supply, variant) pair into an export row, in COLUMNS order."""
     attrs = variant.attributes or {}
     return [
@@ -145,10 +162,13 @@ def serialize_row(supply, variant, final_price) -> list[str]:
         variant.sku,
         variant.name,
         json.dumps(attrs, ensure_ascii=False, sort_keys=True),
-        str(variant.price),
+        str(variant.price_ars) if variant.price_ars is not None else "",
+        str(variant.price_usd) if variant.price_usd is not None else "",
+        "",  # legacy 'price' column — export-blank, import-only alias
         "",  # price_input_mode is import-only
         str(variant.stock_qty),
-        str(final_price),
+        str(final_price_ars) if final_price_ars is not None else "",
+        str(final_price_usd) if final_price_usd is not None else "",
     ]
 
 

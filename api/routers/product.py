@@ -23,6 +23,7 @@ from schemas.product import (
     ImportReport,
 )
 from schemas.catalog import CatalogResponse, CatalogSort
+from models.enums import Currency
 
 router = APIRouter(prefix=f"{settings.API_V1_STR}/products", tags=["products"])
 
@@ -51,6 +52,7 @@ async def list_products(
 
 @router.get("/catalog", response_model=CatalogResponse)  # MUST be declared before GET /{product_id}
 async def get_catalog(
+    currency: Currency = Query(default=Currency.USD),
     q: str | None = Query(default=None),
     category: list[str] = Query(default=[]),
     availability: list[str] = Query(default=[]),
@@ -60,9 +62,11 @@ async def get_catalog(
     page_size: int = Query(default=24, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    """Public storefront catalog — server-side faceted search. See
-    ProductService.get_catalog for filter/facet semantics."""
+    """Public storefront catalog — server-side faceted search, scoped to one
+    currency at a time (facet counts, price buckets and sort all depend on
+    it). See ProductService.get_catalog for filter/facet semantics."""
     return await ProductService(db).get_catalog(
+        currency=currency,
         q=q,
         categories=category,
         availabilities=availability,

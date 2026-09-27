@@ -1,6 +1,11 @@
 from enum import Enum
 
 
+class Currency(str, Enum):
+    ARS = "ARS"
+    USD = "USD"
+
+
 class PackagePricingMode(str, Enum):
     final_price = "final_price"
     discount_percent = "discount_percent"

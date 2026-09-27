@@ -3,7 +3,7 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from models.enums import QuoteType
+from models.enums import QuoteType, Currency
 from models.quote import Quote, QuoteItem
 from repositories.base import BaseRepository
 
@@ -58,6 +58,7 @@ class QuoteRepository(BaseRepository[Quote]):
         client_email: str,
         created_by_id: uuid.UUID,
         quote_type: QuoteType = QuoteType.productos,
+        currency: Currency = Currency.USD,
         client_phone: str | None = None,
         validity_days: int = 30,
         notes: str | None = None,
@@ -71,6 +72,7 @@ class QuoteRepository(BaseRepository[Quote]):
     ) -> Quote:
         obj = Quote(
             quote_type=quote_type,
+            currency=currency,
             title=title,
             client_name=client_name,
             client_email=client_email,

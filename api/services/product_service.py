@@ -13,42 +13,63 @@ from schemas.catalog import (
     CatalogFacets,
 )
 from models.product import Product, ProductVariant
-from models.enums import IvaRate
+from models.enums import IvaRate, Currency
 from exceptions.general import NotFoundException, ConflictException, BadRequestException
 
+_PRICE_FIELD = {Currency.ARS: "price_ars", Currency.USD: "price_usd"}
+_FINAL_PRICE_FIELD = {Currency.ARS: "final_price_ars", Currency.USD: "final_price_usd"}
 
-def _to_net_price(price: Decimal, mode: str, iva_rate: IvaRate) -> Decimal:
+
+def _to_net_price(price: Decimal | None, mode: str, iva_rate: IvaRate) -> Decimal | None:
+    if price is None:
+        return None
     if mode == "net":
         return price
     rate = Decimal(iva_rate.value)
     return (price / (1 + rate / Decimal("100"))).quantize(Decimal("0.01"))
 
 
-def _compute_final_price(price: Decimal, iva_rate: IvaRate) -> Decimal:
+def _compute_final_price(price: Decimal | None, iva_rate: IvaRate) -> Decimal | None:
+    if price is None:
+        return None
     rate = Decimal(iva_rate.value)
     return (price * (1 + rate / Decimal("100"))).quantize(Decimal("0.01"))
 
 
 def _attach_variant_final_prices(product: Product) -> Product:
     for variant in product.variants:
-        variant.final_price = _compute_final_price(variant.price, product.iva_rate)
+        variant.final_price_ars = _compute_final_price(variant.price_ars, product.iva_rate)
+        variant.final_price_usd = _compute_final_price(variant.price_usd, product.iva_rate)
     return product
 
 
 # ── Public catalog (faceted search) ─────────────────────────────────────────
 
-# Fixed price buckets, evaluated on a product's from_price (its cheapest
-# active variant's final price). Labels match the storefront design exactly.
-_PRICE_BUCKETS: list[tuple[str, str]] = [
-    ("lte_300k", "Hasta $ 300.000"),
-    ("300k_1500k", "$ 300.000 a $ 1.500.000"),
-    ("gt_1500k", "Más de $ 1.500.000"),
-]
-_PRICE_BUCKET_THRESHOLDS = (Decimal("300000"), Decimal("1500000"))
+# Fixed price buckets per currency, evaluated on a product's from_price (its
+# cheapest active variant's final price, in the requested currency). ARS
+# thresholds match the pre-multi-currency values; USD thresholds are a fresh,
+# sensible scale (roughly ARS / 1000, reflecting a plausible exchange rate at
+# design time — not a live conversion, just bucket boundaries).
+_PRICE_BUCKETS: dict[Currency, list[tuple[str, str]]] = {
+    Currency.ARS: [
+        ("lte_300k", "Hasta $ 300.000"),
+        ("300k_1500k", "$ 300.000 a $ 1.500.000"),
+        ("gt_1500k", "Más de $ 1.500.000"),
+    ],
+    Currency.USD: [
+        ("lte_300k", "Hasta US$ 300"),
+        ("300k_1500k", "US$ 300 a US$ 1.500"),
+        ("gt_1500k", "Más de US$ 1.500"),
+    ],
+}
+_PRICE_BUCKET_THRESHOLDS: dict[Currency, tuple[Decimal, Decimal]] = {
+    Currency.ARS: (Decimal("300000"), Decimal("1500000")),
+    Currency.USD: (Decimal("300"), Decimal("1500")),
+}
 
 
-def _price_bucket_id(price: Decimal) -> str:
-    low, high = _PRICE_BUCKET_THRESHOLDS
+def _price_bucket_id(price: Decimal, currency: Currency) -> str:
+    low, high = _PRICE_BUCKET_THRESHOLDS[currency]
     if price <= low:
         return "lte_300k"
     if price <= high:
@@ -82,15 +103,20 @@ class _CatalogRow:
     price_bucket: str
 
 
-def _build_catalog_row(product: Product) -> "_CatalogRow | None":
-    active_variants = [v for v in product.variants if v.deleted_at is None]
+def _build_catalog_row(product: Product, currency: Currency) -> "_CatalogRow | None":
+    price_field = _PRICE_FIELD[currency]
+    # Only variants priced in the requested currency count — a product with
+    # zero such variants doesn't appear in this currency's catalog at all.
+    active_variants = [
+        v for v in product.variants if v.deleted_at is None and getattr(v, price_field) is not None
+    ]
     if not active_variants:
-        return None  # products need >=1 active, non-deleted variant
+        return None
 
-    final_prices = [_compute_final_price(v.price, product.iva_rate) for v in active_variants]
-    cheapest_variant = min(active_variants, key=lambda v: _compute_final_price(v.price, product.iva_rate))
+    final_prices = [_compute_final_price(getattr(v, price_field), product.iva_rate) for v in active_variants]
+    cheapest_variant = min(active_variants, key=lambda v: _compute_final_price(getattr(v, price_field), product.iva_rate))
     from_price = min(final_prices)
-    from_price_net = cheapest_variant.price
+    from_price_net = getattr(cheapest_variant, price_field)
     has_multiple_prices = len(set(final_prices)) > 1
 
     if product.made_to_order:
@@ -112,7 +138,7 @@ def _build_catalog_row(product: Product) -> "_CatalogRow | None":
         availability=availability,
         category_slug=category_slug,
         category_name=category_name,
-        price_bucket=_price_bucket_id(from_price),
+        price_bucket=_price_bucket_id(from_price, currency),
     )
 
 
@@ -149,6 +175,7 @@ class ProductService:
 
     async def get_catalog(
         self,
+        currency: Currency,
         q: str | None,
         categories: list[str],
         availabilities: list[str],
@@ -158,7 +185,7 @@ class ProductService:
         page_size: int,
     ) -> CatalogResponse:
         raw_products = await self.repo.get_catalog_products()
-        rows = [row for p in raw_products if (row := _build_catalog_row(p)) is not None]
+        rows = [row for p in raw_products if (row := _build_catalog_row(p, currency)) is not None]
 
         q_norm = (q or "").strip().lower()
         categories_set = set(categories)
@@ -182,9 +209,9 @@ class ProductService:
         # renderVals() logic exactly.
 
         # Category/availability options are only OFFERED when they have >=1
-        # product somewhere in the whole active catalog (no filters at all,
-        # not even q) — a category with zero products across the whole
-        # catalog is omitted entirely, not just disabled.
+        # product somewhere in the whole active catalog FOR THIS CURRENCY (no
+        # filters at all, not even q) — a category with zero products in this
+        # currency is omitted entirely, not just disabled.
         whole_catalog_categories: dict[str, str] = {}
         whole_catalog_availability: set[str] = set()
         for row in rows:
@@ -220,7 +247,7 @@ class ProductService:
                 label=label,
                 count=sum(1 for r in rows if matches(r, "price") and r.price_bucket == bucket_id),
             )
-            for bucket_id, label in _PRICE_BUCKETS
+            for bucket_id, label in _PRICE_BUCKETS[currency]
         ]
 
         results = [r for r in rows if matches(r, None)]
@@ -298,8 +325,9 @@ class ProductService:
         product = await self.repo.create(data)
 
         for variant_data in data.variants:
-            variant_price = _to_net_price(variant_data.price, variant_data.price_input_mode, data.iva_rate)
-            await self.variant_repo.create(product.id, variant_data, price=variant_price)
+            price_ars = _to_net_price(variant_data.price_ars, variant_data.price_input_mode, data.iva_rate)
+            price_usd = _to_net_price(variant_data.price_usd, variant_data.price_input_mode, data.iva_rate)
+            await self.variant_repo.create(product.id, variant_data, price_ars=price_ars, price_usd=price_usd)
 
         # reload with variants
         reloaded = await self.repo.get_with_variants(product.id)
@@ -327,9 +355,11 @@ class ProductService:
     async def create_variant(self, product_id: uuid.UUID, data: ProductVariantCreate) -> ProductVariant:
         product = await self.get_by_id(product_id)  # ensures product exists
         await self._assert_sku_free(data.sku)
-        price = _to_net_price(data.price, data.price_input_mode, product.iva_rate)
-        variant = await self.variant_repo.create(product_id, data, price=price)
-        variant.final_price = _compute_final_price(variant.price, product.iva_rate)
+        price_ars = _to_net_price(data.price_ars, data.price_input_mode, product.iva_rate)
+        price_usd = _to_net_price(data.price_usd, data.price_input_mode, product.iva_rate)
+        variant = await self.variant_repo.create(product_id, data, price_ars=price_ars, price_usd=price_usd)
+        variant.final_price_ars = _compute_final_price(variant.price_ars, product.iva_rate)
+        variant.final_price_usd = _compute_final_price(variant.price_usd, product.iva_rate)
         return variant
 
     async def update_variant(self, variant_id: uuid.UUID, data: ProductVariantUpdate) -> ProductVariant:
@@ -344,11 +374,22 @@ class ProductService:
 
         product = await self.repo.get_by_id(obj.product_id)
         price_input_mode = update_data.pop("price_input_mode", "net")
-        if "price" in update_data and update_data["price"] is not None:
-            update_data["price"] = _to_net_price(update_data["price"], price_input_mode, product.iva_rate)
+        if "price_ars" in update_data and update_data["price_ars"] is not None:
+            update_data["price_ars"] = _to_net_price(update_data["price_ars"], price_input_mode, product.iva_rate)
+        if "price_usd" in update_data and update_data["price_usd"] is not None:
+            update_data["price_usd"] = _to_net_price(update_data["price_usd"], price_input_mode, product.iva_rate)
+
+        # At least one price must survive the update — mirrors
+        # ck_variant_price_at_least_one, checked here so it's a 400 instead of
+        # a 500 IntegrityError.
+        effective_ars = update_data.get("price_ars", obj.price_ars)
+        effective_usd = update_data.get("price_usd", obj.price_usd)
+        if effective_ars is None and effective_usd is None:
+            raise BadRequestException("Debés indicar al menos un precio (ARS o USD)")
 
         variant = await self.variant_repo.update(obj, **update_data)
-        variant.final_price = _compute_final_price(variant.price, product.iva_rate)
+        variant.final_price_ars = _compute_final_price(variant.price_ars, product.iva_rate)
+        variant.final_price_usd = _compute_final_price(variant.price_usd, product.iva_rate)
         return variant
 
     async def delete_variant(self, variant_id: uuid.UUID) -> None:

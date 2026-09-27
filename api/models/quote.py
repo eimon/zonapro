@@ -6,7 +6,7 @@ from sqlalchemy.types import Numeric
 from sqlalchemy import Enum as SAEnum
 from core.database import Base
 from models.base import UUIDMixin, TimestampMixin, SoftDeleteMixin
-from models.enums import QuoteStatus, QuoteType, QuoteItemKind, InstallationCostType
+from models.enums import QuoteStatus, QuoteType, QuoteItemKind, InstallationCostType, Currency
 
 
 class Quote(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
@@ -20,6 +20,11 @@ class Quote(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
         default=QuoteType.productos,
         server_default="productos",
     )
+
+    # Single currency for the whole quote, chosen at creation and locked once
+    # the quote has items (enforced service-side, see QuoteService). Every
+    # item's unit_price/subtotal snapshot is in this currency.
+    currency = Column(SAEnum(Currency), nullable=False, default=Currency.USD)
 
     # Client-visible fields
     title = Column(String(300), nullable=False)

@@ -309,7 +309,7 @@
       <div class="info-row">
         <span class="info-label">Total</span>
         <span class="info-value" style="font-weight:700; color:{{ accent_color }}">
-          ${{ total | ars }}
+          {{ currency_symbol }} {{ total | ars }}
         </span>
       </div>
     </div>
@@ -354,12 +354,12 @@
               {% endif %}
             {% endif %}
             {% if contempla_iva %}
-              <div class="item-meta">IVA {{ item.iva_rate }}% (${{ item.display_iva_amount | ars }})</div>
+              <div class="item-meta">IVA {{ item.iva_rate }}% ({{ currency_symbol }} {{ item.display_iva_amount | ars }})</div>
             {% endif %}
           </td>
           <td class="right">{{ item.quantity | qty }}</td>
-          <td class="right">${{ item.display_unit_price | ars }}</td>
-          <td class="right">${{ item.display_subtotal | ars }}</td>
+          <td class="right">{{ currency_symbol }} {{ item.display_unit_price | ars }}</td>
+          <td class="right">{{ currency_symbol }} {{ item.display_subtotal | ars }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -371,12 +371,12 @@
     {% if quote.installation_cost_type or contempla_iva %}
     <div class="subtotal-line">
       <span class="total-label">Precio sin impuestos</span>
-      <span class="total-amount">${{ subtotal | ars }}</span>
+      <span class="total-amount">{{ currency_symbol }} {{ subtotal | ars }}</span>
     </div>
     {% if contempla_iva %}
     <div class="subtotal-line">
       <span class="total-label">IVA</span>
-      <span class="total-amount">${{ iva_amount | ars }}</span>
+      <span class="total-amount">{{ currency_symbol }} {{ iva_amount | ars }}</span>
     </div>
     {% endif %}
     {% if quote.installation_cost_type %}
@@ -385,13 +385,13 @@
         Instalación
         {% if installation_is_percentage %}({{ quote.installation_cost_value }}%){% endif %}
       </span>
-      <span class="total-amount">${{ installation_amount | ars }}</span>
+      <span class="total-amount">{{ currency_symbol }} {{ installation_amount | ars }}</span>
     </div>
     {% endif %}
     {% endif %}
     <div class="total-box">
       <span class="total-label">Total</span>
-      <span class="total-amount">${{ total | ars }}</span>
+      <span class="total-amount">{{ currency_symbol }} {{ total | ars }}</span>
     </div>
   </div>
 

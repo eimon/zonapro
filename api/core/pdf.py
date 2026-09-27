@@ -22,10 +22,17 @@ TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 
 
 def format_ars(value) -> str:
-    """Format like the web (es-AR): '.' for thousands, ',' for decimals."""
+    """es-AR NUMBER formatting only ('.' thousands, ',' decimals) — no
+    currency symbol. Paired with `currency_symbol` in the template context to
+    build the full "$ 1.234,56" / "US$ 1.234,56" strings (see
+    CURRENCY_SYMBOLS)."""
     number = Decimal(value)
     formatted = f"{number:,.2f}"
     return formatted.translate(str.maketrans(",.", ".,"))
+
+
+# Same es-AR number format for both currencies — only the symbol differs.
+CURRENCY_SYMBOLS = {"ARS": "$", "USD": "US$"}
 
 
 def format_quantity(value) -> str:
@@ -68,6 +75,7 @@ def generate_quote_pdf(quote: Quote) -> bytes:
         total=total,
         contempla_iva=quote.contempla_iva,
         iva_amount=quote.iva_amount,
+        currency_symbol=CURRENCY_SYMBOLS[quote.currency.value],
         validity_date=validity_date,
         company_name=brand.company_name,
         company_tagline=brand.tagline,

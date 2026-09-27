@@ -53,7 +53,9 @@ class PackageRepository(BaseRepository[Package]):
         slug: str,
         description: str | None,
         pricing_mode,
-        pricing_value: Decimal,
+        discount_percent: Decimal | None,
+        pricing_value_ars: Decimal | None,
+        pricing_value_usd: Decimal | None,
         is_active: bool,
     ) -> Package:
         obj = Package(
@@ -61,7 +63,9 @@ class PackageRepository(BaseRepository[Package]):
             slug=slug,
             description=description,
             pricing_mode=pricing_mode,
-            pricing_value=pricing_value,
+            discount_percent=discount_percent,
+            pricing_value_ars=pricing_value_ars,
+            pricing_value_usd=pricing_value_usd,
             is_active=is_active,
         )
         self.db.add(obj)

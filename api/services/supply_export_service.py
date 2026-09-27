@@ -16,7 +16,8 @@ class SupplyExportService:
             for variant in supply.variants:
                 if variant.deleted_at is not None:
                     continue  # the relationship has no deleted_at filter — skip soft-deleted variants
-                final_price = _compute_final_price(variant.price, supply.iva_rate)
-                rows.append(serialize_row(supply, variant, final_price))
+                final_price_ars = _compute_final_price(variant.price_ars, supply.iva_rate)
+                final_price_usd = _compute_final_price(variant.price_usd, supply.iva_rate)
+                rows.append(serialize_row(supply, variant, final_price_ars, final_price_usd))
 
         return write_csv(rows, delimiter=delimiter)

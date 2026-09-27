@@ -1,7 +1,7 @@
 import uuid
 from decimal import Decimal
 from typing import Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from models.enums import IvaRate
 from schemas.catalog import CatalogCategoryRef
 
@@ -10,16 +10,26 @@ class ProductVariantCreate(BaseModel):
     sku: str
     name: str
     attributes: dict | None = None
-    price: Decimal
+    # Prices are independent, manually-edited values per currency — never
+    # auto-converted. At least one of the two is required.
+    price_ars: Decimal | None = None
+    price_usd: Decimal | None = None
     price_input_mode: Literal["net", "final"] = "net"
     stock_qty: int = 0
+
+    @model_validator(mode="after")
+    def at_least_one_price(self) -> "ProductVariantCreate":
+        if self.price_ars is None and self.price_usd is None:
+            raise ValueError("Debés indicar al menos un precio (ARS o USD)")
+        return self
 
 
 class ProductVariantUpdate(BaseModel):
     sku: str | None = None
     name: str | None = None
     attributes: dict | None = None
-    price: Decimal | None = None
+    price_ars: Decimal | None = None
+    price_usd: Decimal | None = None
     price_input_mode: Literal["net", "final"] = "net"
     stock_qty: int | None = None
 
@@ -30,9 +40,11 @@ class ProductVariantResponse(BaseModel):
     sku: str
     name: str
     attributes: dict | None
-    price: Decimal
+    price_ars: Decimal | None
+    price_usd: Decimal | None
     stock_qty: int
-    final_price: Decimal
+    final_price_ars: Decimal | None
+    final_price_usd: Decimal | None
 
     model_config = {"from_attributes": True}
 
