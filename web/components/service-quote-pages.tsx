@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api, type Product, type Quote, type QuoteItem, type QuoteType, type Supply } from "@/lib/api";
+import { api, DEFAULT_QUOTE_CURRENCY, type Currency, type Product, type Quote, type QuoteItem, type QuoteType, type Supply } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { ServiceQuoteItemsEditor, type ServiceQuoteItemDraft } from "@/components/service-quote-items-editor";
 import { quoteFormSchema, type QuoteFormValues } from "@/lib/quote-form";
@@ -107,6 +107,7 @@ export function NewServiceQuotePage({ quoteType, listHref, typeLabel }: ServiceQ
   const [products, setProducts] = useState<Product[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [items, setItems] = useState<ServiceQuoteItemDraft[]>([]);
+  const [currency, setCurrency] = useState<Currency>(DEFAULT_QUOTE_CURRENCY);
 
   useEffect(() => {
     api.products.list().then(setProducts).catch(() => {});
@@ -140,6 +141,7 @@ export function NewServiceQuotePage({ quoteType, listHref, typeLabel }: ServiceQ
         {
           ...data,
           quote_type: quoteType,
+          currency,
           client_phone: data.client_phone || null,
           notes: data.notes || null,
           cost_notes: data.cost_notes || null,
@@ -181,6 +183,34 @@ export function NewServiceQuotePage({ quoteType, listHref, typeLabel }: ServiceQ
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <QuoteClientFields register={register} errors={errors} />
 
+        {/* Currency — locked once the first item is added, since every
+            item's price snapshot is in this currency. */}
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Moneda</label>
+          <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden w-fit">
+            {(["ARS", "USD"] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                disabled={items.length > 0}
+                onClick={() => setCurrency(c)}
+                className={`px-4 py-2 text-sm font-medium transition-colors duration-150 ${
+                  currency === c
+                    ? "bg-brand-blue text-white"
+                    : "bg-zinc-50 dark:bg-zinc-950/60 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                } ${items.length > 0 ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          {items.length > 0 && (
+            <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+              La moneda queda fija una vez que agregás el primer ítem.
+            </p>
+          )}
+        </div>
+
         {/* Productos + insumos + conceptos manuales */}
         <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-4">
@@ -198,6 +228,7 @@ export function NewServiceQuotePage({ quoteType, listHref, typeLabel }: ServiceQ
             }
             onRemove={(index) => setItems((prev) => prev.filter((_, i) => i !== index))}
             contemplaIva={contemplaIva}
+            currency={currency}
           />
         </div>
 
@@ -232,6 +263,7 @@ export function EditServiceQuotePage({ quoteType, listHref, typeLabel }: Service
   const [products, setProducts] = useState<Product[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [items, setItems] = useState<ServiceQuoteItemDraft[]>([]);
+  const [currency, setCurrency] = useState<Currency>(DEFAULT_QUOTE_CURRENCY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [itemBusy, setItemBusy] = useState(false);
@@ -259,6 +291,7 @@ export function EditServiceQuotePage({ quoteType, listHref, typeLabel }: Service
         setProducts(prods);
         setSupplies(sup);
         setItems(itemsFromQuote(q));
+        setCurrency(q.currency);
         reset({
           title: q.title,
           client_name: q.client_name,
@@ -275,6 +308,26 @@ export function EditServiceQuotePage({ quoteType, listHref, typeLabel }: Service
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar la cotización"))
       .finally(() => setLoading(false));
   }, [id, router, reset]);
+
+  // Currency must be persisted before any item is added: addItem prices
+  // product/supply lines server-side from the quote's *stored* currency, so a
+  // local-only change would silently price items in the old currency.
+  async function handleCurrencyChange(next: Currency) {
+    if (next === currency || items.length > 0) return;
+    const token = getToken();
+    if (!token) return;
+    setItemBusy(true);
+    setError(null);
+    try {
+      const updated = await api.quotes.update(id, { currency: next }, token);
+      setQuote(updated);
+      setCurrency(updated.currency);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cambiar la moneda");
+    } finally {
+      setItemBusy(false);
+    }
+  }
 
   async function handleAddItem(item: ServiceQuoteItemDraft) {
     const token = getToken();
@@ -365,6 +418,7 @@ export function EditServiceQuotePage({ quoteType, listHref, typeLabel }: Service
         id,
         {
           ...data,
+          currency,
           client_phone: data.client_phone || null,
           notes: data.notes || null,
           cost_notes: data.cost_notes || null,
@@ -436,6 +490,34 @@ export function EditServiceQuotePage({ quoteType, listHref, typeLabel }: Service
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <QuoteClientFields register={register} errors={errors} placeholders={false} />
 
+        {/* Currency — locked once the quote has items, matching the
+            server-side rule (QuoteService.update). */}
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Moneda</label>
+          <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden w-fit">
+            {(["ARS", "USD"] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                disabled={items.length > 0 || itemBusy}
+                onClick={() => handleCurrencyChange(c)}
+                className={`px-4 py-2 text-sm font-medium transition-colors duration-150 ${
+                  currency === c
+                    ? "bg-brand-blue text-white"
+                    : "bg-zinc-50 dark:bg-zinc-950/60 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                } ${items.length > 0 ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          {items.length > 0 && (
+            <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+              La moneda queda fija porque esta cotización ya tiene ítems cargados.
+            </p>
+          )}
+        </div>
+
         {/* Productos + insumos + conceptos manuales */}
         <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
           <div className="flex items-center justify-between mb-4">
@@ -450,6 +532,7 @@ export function EditServiceQuotePage({ quoteType, listHref, typeLabel }: Service
             onUpdate={handleUpdateItem}
             onRemove={handleRemoveItem}
             contemplaIva={contemplaIva ?? true}
+            currency={currency}
           />
         </div>
 

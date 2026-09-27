@@ -13,13 +13,19 @@ import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
 
-const variantSchema = z.object({
-  id: z.string().optional(),
-  sku: z.string().min(1, "SKU requerido"),
-  name: z.string().min(1, "Nombre requerido"),
-  price: z.string().optional(),
-  stock_qty: z.number().int().min(0),
-});
+const variantSchema = z
+  .object({
+    id: z.string().optional(),
+    sku: z.string().min(1, "SKU requerido"),
+    name: z.string().min(1, "Nombre requerido"),
+    price_ars: z.string().optional(),
+    price_usd: z.string().optional(),
+    stock_qty: z.number().int().min(0),
+  })
+  .refine((v) => !!v.price_ars?.trim() || !!v.price_usd?.trim(), {
+    message: "Ingresá al menos un precio (ARS o USD)",
+    path: ["price_ars"],
+  });
 
 const schema = z.object({
   name: z.string().min(1, "Nombre requerido"),
@@ -112,7 +118,8 @@ export default function EditarProductoPage() {
             id: v.id,
             sku: v.sku,
             name: v.name,
-            price: v.price ?? "",
+            price_ars: v.price_ars ?? "",
+            price_usd: v.price_usd ?? "",
             stock_qty: v.stock_qty,
           })),
         });
@@ -153,7 +160,8 @@ export default function EditarProductoPage() {
           const payload = {
             sku: v.sku,
             name: v.name,
-            price: v.price ? parseFloat(v.price) : null,
+            price_ars: v.price_ars ? parseFloat(v.price_ars) : null,
+            price_usd: v.price_usd ? parseFloat(v.price_usd) : null,
             stock_qty: v.stock_qty,
           };
           return v.id
@@ -291,7 +299,7 @@ export default function EditarProductoPage() {
             </h2>
             <button
               type="button"
-              onClick={() => append({ sku: "", name: "", price: "", stock_qty: 0 })}
+              onClick={() => append({ sku: "", name: "", price_ars: "", price_usd: "", stock_qty: 0 })}
               className="flex items-center gap-1.5 text-xs font-medium text-brand-blue hover:opacity-80 transition-opacity cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -309,7 +317,7 @@ export default function EditarProductoPage() {
                 key={field.id}
                 className="grid grid-cols-12 gap-3 p-4 bg-zinc-50 dark:bg-zinc-950/60 rounded-lg border border-zinc-200 dark:border-zinc-800"
               >
-                <div className="col-span-12 sm:col-span-3">
+                <div className="col-span-12 sm:col-span-2">
                   <InputField label="SKU" required error={errors.variants?.[index]?.sku?.message}>
                     <input
                       type="text"
@@ -323,15 +331,27 @@ export default function EditarProductoPage() {
                     <input type="text" className={inputClass} {...register(`variants.${index}.name`)} />
                   </InputField>
                 </div>
-                <div className="col-span-6 sm:col-span-3">
-                  <InputField label="Precio (ARS)" error={errors.variants?.[index]?.price?.message}>
+                <div className="col-span-6 sm:col-span-2">
+                  <InputField label="Precio ARS (neto)" error={errors.variants?.[index]?.price_ars?.message}>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
                       placeholder="0.00"
                       className={inputClass}
-                      {...register(`variants.${index}.price`)}
+                      {...register(`variants.${index}.price_ars`)}
+                    />
+                  </InputField>
+                </div>
+                <div className="col-span-6 sm:col-span-2">
+                  <InputField label="Precio USD (neto)">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      className={inputClass}
+                      {...register(`variants.${index}.price_usd`)}
                     />
                   </InputField>
                 </div>

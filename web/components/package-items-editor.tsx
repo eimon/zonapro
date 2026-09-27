@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { Plus, Trash2, PackageIcon, Boxes } from "lucide-react";
 import type { Product, Supply } from "@/lib/api";
+import { formatMoney } from "@/lib/format";
 
 // Mirrors service-quote-items-editor.tsx's picker + parseDecimalQuantity
 // approach, trimmed to the two kinds a package can hold (no manual concept
@@ -15,7 +16,10 @@ export type PackageItemDraft = {
   supply_variant_id?: string;
   name: string;
   sku: string;
-  unit_price: string; // NET — snapshot of the catalog price at the moment it was added — live preview only, backend recomputes on save
+  // NET — snapshot of the catalog price(s) at the moment it was added — live
+  // preview only, backend recomputes on save. Either may be null.
+  unit_price_ars: string | null;
+  unit_price_usd: string | null;
   iva_rate: string; // the parent product's/supply's IVA rate — used to preview the IVA-inclusive price
   quantity: number;
   display_order: number;
@@ -35,8 +39,16 @@ const KIND_BADGE_CLASSES: Record<PackageItemDraft["kind"], string> = {
   supply: "bg-brand-blue/10 text-brand-blue",
 };
 
-function money(value: number) {
-  return `$${value.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Preview-only stacked ARS/USD cell — mirrors the dashboard list pages'
+// PriceCell. `null` shows as "—" rather than "Sin precio" here since a
+// single missing currency on one item is normal, not an error state.
+function MoneyPair({ ars, usd }: { ars: string | null; usd: string | null }) {
+  return (
+    <span className="flex flex-col leading-tight">
+      <span>{ars !== null ? formatMoney(ars, "ARS") : "—"}</span>
+      <span className="text-xs text-zinc-500 dark:text-zinc-400">{usd !== null ? formatMoney(usd, "USD") : "—"}</span>
+    </span>
+  );
 }
 
 // Supplies accept fractional quantities (e.g. 2.5 m of cable); products stay
@@ -72,7 +84,8 @@ export function PackageItemsEditor({
       variantId: variant.id,
       label: `${product.name} — ${variant.name}`,
       sku: variant.sku,
-      price: variant.price,
+      priceArs: variant.price_ars,
+      priceUsd: variant.price_usd,
       ivaRate: product.iva_rate,
       imageUrl: product.image_url,
     }))
@@ -83,7 +96,8 @@ export function PackageItemsEditor({
       variantId: variant.id,
       label: `${supply.name} — ${variant.name}`,
       sku: variant.sku,
-      price: variant.price,
+      priceArs: variant.price_ars,
+      priceUsd: variant.price_usd,
       ivaRate: supply.iva_rate,
       imageUrl: supply.image_url,
     }))
@@ -97,7 +111,8 @@ export function PackageItemsEditor({
       product_variant_id: option.variantId,
       name: option.label,
       sku: option.sku,
-      unit_price: option.price ?? "0",
+      unit_price_ars: option.priceArs,
+      unit_price_usd: option.priceUsd,
       iva_rate: option.ivaRate,
       quantity: productQuantity,
       display_order: items.length,
@@ -116,7 +131,8 @@ export function PackageItemsEditor({
       supply_variant_id: option.variantId,
       name: option.label,
       sku: option.sku,
-      unit_price: option.price ?? "0",
+      unit_price_ars: option.priceArs,
+      unit_price_usd: option.priceUsd,
       iva_rate: option.ivaRate,
       quantity,
       display_order: items.length,
@@ -126,7 +142,8 @@ export function PackageItemsEditor({
     setSupplyQuantity("1");
   }
 
-  const listPrice = items.reduce((sum, item) => sum + parseFloat(item.unit_price) * item.quantity, 0);
+  const listPriceArs = items.reduce((sum, item) => sum + (item.unit_price_ars ? parseFloat(item.unit_price_ars) : 0) * item.quantity, 0);
+  const listPriceUsd = items.reduce((sum, item) => sum + (item.unit_price_usd ? parseFloat(item.unit_price_usd) : 0) * item.quantity, 0);
 
   return (
     <div className="space-y-5">
@@ -195,10 +212,13 @@ export function PackageItemsEditor({
                     />
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-                    {money(parseFloat(item.unit_price))}
+                    <MoneyPair ars={item.unit_price_ars} usd={item.unit_price_usd} />
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums font-medium text-zinc-900 dark:text-white">
-                    {money(parseFloat(item.unit_price) * item.quantity)}
+                    <MoneyPair
+                      ars={item.unit_price_ars ? String(parseFloat(item.unit_price_ars) * item.quantity) : null}
+                      usd={item.unit_price_usd ? String(parseFloat(item.unit_price_usd) * item.quantity) : null}
+                    />
                   </td>
                   <td className="px-3 py-2.5 text-right">
                     <button
@@ -300,7 +320,9 @@ export function PackageItemsEditor({
 
       <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-sm">
         <span className="text-zinc-500 dark:text-zinc-400">Precio de lista (sin impuestos)</span>
-        <span className="text-base font-semibold text-zinc-900 dark:text-white tabular-nums">{money(listPrice)}</span>
+        <span className="text-base font-semibold text-zinc-900 dark:text-white tabular-nums text-right">
+          <MoneyPair ars={String(listPriceArs)} usd={String(listPriceUsd)} />
+        </span>
       </div>
     </div>
   );

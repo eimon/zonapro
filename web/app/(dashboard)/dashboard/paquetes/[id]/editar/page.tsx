@@ -17,9 +17,11 @@ function toItemDrafts(pkg: Package): PackageItemDraft[] {
     supply_variant_id: item.supply_variant_id ?? undefined,
     name: item.name,
     sku: item.sku,
-    // NET, not the gross item.unit_price — drafts always carry the NET price
-    // (see PackageItemDraft.unit_price), the pricing basis the form previews from.
-    unit_price: item.unit_price_net,
+    // NET, not the gross item.unit_price_ars/usd — drafts always carry the
+    // NET price (see PackageItemDraft.unit_price_ars/usd), the pricing basis
+    // the form previews from.
+    unit_price_ars: item.unit_price_net_ars,
+    unit_price_usd: item.unit_price_net_usd,
     iva_rate: item.iva_rate,
     quantity: item.quantity,
     display_order: item.display_order,
@@ -103,7 +105,9 @@ export default function EditarPaquetePage() {
           description: pkg.description ?? "",
           is_active: pkg.is_active,
           pricing_mode: pkg.pricing_mode,
-          pricing_value: pkg.pricing_value,
+          discount_percent: pkg.discount_percent ?? "",
+          pricing_value_ars: pkg.pricing_value_ars ?? "",
+          pricing_value_usd: pkg.pricing_value_usd ?? "",
         }}
         initialItems={toItemDrafts(pkg)}
         onSubmit={handleSubmit}

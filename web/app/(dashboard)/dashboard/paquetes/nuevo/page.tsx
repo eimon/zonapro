@@ -69,7 +69,9 @@ export default function NuevoPaquetePage() {
             description: "",
             is_active: true,
             pricing_mode: "discount_percent",
-            pricing_value: "",
+            discount_percent: "",
+            pricing_value_ars: "",
+            pricing_value_usd: "",
           }}
           onSubmit={handleSubmit}
           submitLabel="Crear paquete"

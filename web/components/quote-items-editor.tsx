@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Package, Plus, Trash2 } from "lucide-react";
-import type { InstallationCostType, Product, Supply } from "@/lib/api";
+import type { Currency, InstallationCostType, Product, Supply } from "@/lib/api";
+import { CURRENCY_SYMBOLS, formatMoney } from "@/lib/format";
 
 // Both quote flows now allow product AND supply items (server-side mutual
 // exclusion between quote_type and item kind was removed — see
@@ -40,10 +41,6 @@ const inputClass =
 // Installation cost is always taxed at the standard rate when the quote contempla IVA.
 const INSTALLATION_IVA_RATE = 21;
 
-function money(value: number) {
-  return `$${value.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 const KIND_LABELS: Record<QuoteItemDraft["kind"], string> = {
   product: "Producto",
   supply: "Insumo",
@@ -73,6 +70,7 @@ export function QuoteItemsEditor({
   onInstallationCostTypeChange,
   onInstallationCostValueChange,
   contemplaIva,
+  currency,
 }: {
   products: Product[];
   supplies: Supply[];
@@ -84,6 +82,10 @@ export function QuoteItemsEditor({
   onInstallationCostTypeChange: (value: InstallationCostType | "") => void;
   onInstallationCostValueChange: (value: string) => void;
   contemplaIva: boolean;
+  // Pickers only offer variants priced in the quote's own currency — adding
+  // anything else would be rejected server-side (see
+  // QuoteService._build_item's currency-price BadRequest).
+  currency: Currency;
 }) {
   // Producto picker state
   const [variantId, setVariantId] = useState("");
@@ -93,24 +95,30 @@ export function QuoteItemsEditor({
   const [supplyVariantId, setSupplyVariantId] = useState("");
   const [supplyQuantity, setSupplyQuantity] = useState(1);
 
+  const priceField = currency === "ARS" ? "price_ars" : "price_usd";
+
   const variantOptions = products.flatMap((product) =>
-    product.variants.map((variant) => ({
-      variantId: variant.id,
-      label: `${product.name} — ${variant.name}`,
-      sku: variant.sku,
-      price: variant.price,
-      ivaRate: product.iva_rate,
-    }))
+    product.variants
+      .filter((variant) => variant[priceField] !== null)
+      .map((variant) => ({
+        variantId: variant.id,
+        label: `${product.name} — ${variant.name}`,
+        sku: variant.sku,
+        price: variant[priceField] as string,
+        ivaRate: product.iva_rate,
+      }))
   );
 
   const supplyVariantOptions = supplies.flatMap((supply) =>
-    supply.variants.map((variant) => ({
-      variantId: variant.id,
-      label: `${supply.name} — ${variant.name}`,
-      sku: variant.sku,
-      price: variant.price,
-      ivaRate: supply.iva_rate,
-    }))
+    supply.variants
+      .filter((variant) => variant[priceField] !== null)
+      .map((variant) => ({
+        variantId: variant.id,
+        label: `${supply.name} — ${variant.name}`,
+        sku: variant.sku,
+        price: variant[priceField] as string,
+        ivaRate: supply.iva_rate,
+      }))
   );
 
   function handleAdd() {
@@ -122,7 +130,7 @@ export function QuoteItemsEditor({
       product_name: option.label,
       product_sku: option.sku,
       quantity,
-      unit_price: option.price ?? "0",
+      unit_price: option.price,
       iva_rate: option.ivaRate,
     });
     setVariantId("");
@@ -138,7 +146,7 @@ export function QuoteItemsEditor({
       supply_name: option.label,
       supply_sku: option.sku,
       quantity: supplyQuantity,
-      unit_price: option.price ?? "0",
+      unit_price: option.price,
       iva_rate: option.ivaRate,
     });
     setSupplyVariantId("");
@@ -219,10 +227,10 @@ export function QuoteItemsEditor({
                     {item.quantity}
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-                    {money(parseFloat(item.unit_price))}
+                    {formatMoney(item.unit_price, currency)}
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums font-medium text-zinc-900 dark:text-white">
-                    {money(parseFloat(item.unit_price) * item.quantity)}
+                    {formatMoney(parseFloat(item.unit_price) * item.quantity, currency)}
                   </td>
                   <td className="px-3 py-2.5 text-right">
                     <button
@@ -346,7 +354,7 @@ export function QuoteItemsEditor({
                 className={inputClass}
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400 pointer-events-none">
-                {installationCostType === "percentage" ? "%" : "$"}
+                {installationCostType === "percentage" ? "%" : CURRENCY_SYMBOLS[currency]}
               </span>
             </div>
           )}
@@ -357,18 +365,18 @@ export function QuoteItemsEditor({
       <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5">
         <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
           <span>Precio sin impuestos</span>
-          <span className="tabular-nums">{money(itemsSubtotal)}</span>
+          <span className="tabular-nums">{formatMoney(itemsSubtotal, currency)}</span>
         </div>
         {contemplaIva && (
           <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
             <span>IVA</span>
-            <span className="tabular-nums">{money(ivaAmount)}</span>
+            <span className="tabular-nums">{formatMoney(ivaAmount, currency)}</span>
           </div>
         )}
         {installationCostType && (
           <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
             <span>Instalación{installationCostType === "percentage" ? ` (${installationCostValue || 0}%)` : ""}</span>
-            <span className="tabular-nums">{money(installationAmount)}</span>
+            <span className="tabular-nums">{formatMoney(installationAmount, currency)}</span>
           </div>
         )}
         <div className="flex items-center justify-between text-base font-semibold text-zinc-900 dark:text-white pt-1.5">
@@ -378,7 +386,7 @@ export function QuoteItemsEditor({
               <span className="ml-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">(sin IVA)</span>
             )}
           </span>
-          <span className="tabular-nums">{money(total)}</span>
+          <span className="tabular-nums">{formatMoney(total, currency)}</span>
         </div>
       </div>
     </div>

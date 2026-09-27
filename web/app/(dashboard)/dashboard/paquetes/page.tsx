@@ -6,10 +6,31 @@ import { getToken } from "@/lib/auth";
 import Link from "next/link";
 import { AlertTriangle, Layers, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { PackageImageMosaic } from "@/components/package-image-mosaic";
+import { formatMoney } from "@/lib/format";
 
-function money(value: string) {
-  const n = parseFloat(value);
-  return Number.isNaN(n) ? "—" : `$${n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Stacked ARS/USD line — "No disp." when the package isn't priceable in that
+// currency (prices[currency] is null: some item lacks a price there, or —
+// for final_price mode — no value was set for it).
+function PriceLines({ pkg, field }: { pkg: Package; field: "list_price" | "final_price" | "final_price_net" }) {
+  return (
+    <span className="flex flex-col leading-tight">
+      <span>{pkg.prices.ARS ? formatMoney(pkg.prices.ARS[field], "ARS") : <span className="text-zinc-400 dark:text-zinc-600">No disp. en ARS</span>}</span>
+      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+        {pkg.prices.USD ? formatMoney(pkg.prices.USD[field], "USD") : <span className="text-zinc-400 dark:text-zinc-600">No disp. en USD</span>}
+      </span>
+    </span>
+  );
+}
+
+function DiscountLines({ pkg }: { pkg: Package }) {
+  const ars = pkg.prices.ARS ? parseFloat(pkg.prices.ARS.discount_percent) : null;
+  const usd = pkg.prices.USD ? parseFloat(pkg.prices.USD.discount_percent) : null;
+  return (
+    <span className="flex flex-col leading-tight text-emerald-600 dark:text-emerald-400">
+      <span>{ars !== null ? `-${ars.toLocaleString("es-AR", { maximumFractionDigits: 2 })}%` : "—"}</span>
+      <span className="text-xs">{usd !== null ? `-${usd.toLocaleString("es-AR", { maximumFractionDigits: 2 })}%` : "—"}</span>
+    </span>
+  );
 }
 
 function SkeletonRow() {
@@ -187,16 +208,13 @@ export default function PaquetesPage() {
                   </td>
                   <td className="px-4 py-4 text-zinc-700 dark:text-zinc-300 tabular-nums">{pkg.items.length}</td>
                   <td className="px-4 py-4 text-zinc-500 dark:text-zinc-500 tabular-nums line-through">
-                    {money(pkg.list_price)}
+                    <PriceLines pkg={pkg} field="list_price" />
                   </td>
-                  <td className="px-4 py-4 tabular-nums">
-                    <span className="block font-medium text-zinc-900 dark:text-white">{money(pkg.final_price)}</span>
-                    <span className="block text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                      Sin impuestos: {money(pkg.final_price_net)}
-                    </span>
+                  <td className="px-4 py-4 tabular-nums font-medium text-zinc-900 dark:text-white">
+                    <PriceLines pkg={pkg} field="final_price" />
                   </td>
-                  <td className="px-4 py-4 text-emerald-600 dark:text-emerald-400 tabular-nums font-medium">
-                    -{parseFloat(pkg.discount_percent).toLocaleString("es-AR", { maximumFractionDigits: 2 })}%
+                  <td className="px-4 py-4 tabular-nums font-medium">
+                    <DiscountLines pkg={pkg} />
                   </td>
                   <td className="px-4 py-4">
                     <StatusBadges pkg={pkg} />
@@ -268,19 +286,20 @@ export default function PaquetesPage() {
               <div className="mt-3.5 pt-3.5 border-t border-zinc-100 dark:border-zinc-800 grid grid-cols-2 gap-y-2.5 gap-x-3 text-xs">
                 <div>
                   <p className="text-zinc-400 dark:text-zinc-500 mb-0.5">Precio de lista</p>
-                  <p className="font-medium text-zinc-700 dark:text-zinc-300 tabular-nums line-through">{money(pkg.list_price)}</p>
+                  <p className="font-medium text-zinc-700 dark:text-zinc-300 tabular-nums line-through">
+                    <PriceLines pkg={pkg} field="list_price" />
+                  </p>
                 </div>
                 <div>
                   <p className="text-zinc-400 dark:text-zinc-500 mb-0.5">Precio final</p>
-                  <p className="font-medium text-zinc-900 dark:text-white tabular-nums">{money(pkg.final_price)}</p>
-                  <p className="text-zinc-400 dark:text-zinc-500 tabular-nums">
-                    Sin impuestos: {money(pkg.final_price_net)}
+                  <p className="font-medium text-zinc-900 dark:text-white tabular-nums">
+                    <PriceLines pkg={pkg} field="final_price" />
                   </p>
                 </div>
                 <div>
                   <p className="text-zinc-400 dark:text-zinc-500 mb-0.5">Descuento</p>
-                  <p className="font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
-                    -{parseFloat(pkg.discount_percent).toLocaleString("es-AR", { maximumFractionDigits: 2 })}%
+                  <p className="font-medium tabular-nums">
+                    <DiscountLines pkg={pkg} />
                   </p>
                 </div>
                 <div>

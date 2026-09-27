@@ -7,16 +7,31 @@ import Image from "next/image";
 import Link from "next/link";
 import { Boxes, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { CsvPanel } from "@/components/csv-panel";
+import { formatMoney } from "@/lib/format";
 
 function totalStock(s: Supply) {
   return s.variants.reduce((sum, v) => sum + v.stock_qty, 0);
 }
 
-function lowestPrice(s: Supply): number | null {
-  const prices = s.variants
-    .map((v) => parseFloat(v.price))
-    .filter((price) => !Number.isNaN(price));
-  return prices.length ? Math.min(...prices) : null;
+function lowestPrices(s: Supply): { ars: number | null; usd: number | null } {
+  const arsPrices = s.variants.map((v) => (v.price_ars ? parseFloat(v.price_ars) : null)).filter((v): v is number => v !== null);
+  const usdPrices = s.variants.map((v) => (v.price_usd ? parseFloat(v.price_usd) : null)).filter((v): v is number => v !== null);
+  return {
+    ars: arsPrices.length ? Math.min(...arsPrices) : null,
+    usd: usdPrices.length ? Math.min(...usdPrices) : null,
+  };
+}
+
+function PriceCell({ ars, usd }: { ars: number | null; usd: number | null }) {
+  if (ars === null && usd === null) {
+    return <span className="text-zinc-400 dark:text-zinc-500 text-xs">Sin precio</span>;
+  }
+  return (
+    <span className="flex flex-col leading-tight">
+      {ars !== null && <span>{formatMoney(ars, "ARS")}</span>}
+      {usd !== null && <span className={ars !== null ? "text-xs text-zinc-500 dark:text-zinc-400" : ""}>{formatMoney(usd, "USD")}</span>}
+    </span>
+  );
 }
 
 function SkeletonRow() {
@@ -79,7 +94,7 @@ function SupplyCard({
   onDelete: (supply: Supply) => void;
 }) {
   const stock = totalStock(supply);
-  const price = lowestPrice(supply);
+  const price = lowestPrices(supply);
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
       <div className="flex items-start gap-3">
@@ -132,11 +147,7 @@ function SupplyCard({
         <div>
           <p className="text-zinc-400 dark:text-zinc-500 mb-0.5">Precio desde</p>
           <p className="font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">
-            {price !== null ? (
-              `$${price.toLocaleString("es-AR")}`
-            ) : (
-              <span className="text-zinc-400 dark:text-zinc-500 font-normal">Sin precio</span>
-            )}
+            <PriceCell ars={price.ars} usd={price.usd} />
           </p>
         </div>
         <div>
@@ -336,7 +347,7 @@ export default function InsumosPage() {
             ) : (
               filtered.map((supply) => {
                 const stock = totalStock(supply);
-                const price = lowestPrice(supply);
+                const price = lowestPrices(supply);
                 return (
                   <tr
                     key={supply.id}
@@ -384,11 +395,7 @@ export default function InsumosPage() {
                       )}
                     </td>
                     <td className="px-4 py-4 text-zinc-700 dark:text-zinc-300 tabular-nums">
-                      {price !== null ? (
-                        `$${price.toLocaleString("es-AR")}`
-                      ) : (
-                        <span className="text-zinc-400 dark:text-zinc-500 text-xs">Sin precio</span>
-                      )}
+                      <PriceCell ars={price.ars} usd={price.usd} />
                     </td>
                     <td className="px-4 py-4">
                       <span

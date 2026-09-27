@@ -22,10 +22,13 @@ const COLUMN_REF: {
   { name: "sku", level: "Variante", required: "req", note: "Único en todo el catálogo. Alcanza solo para identificar una fila de actualización." },
   { name: "variant_name", level: "Variante", required: "req", note: "Nombre propio de esa variante." },
   { name: "attributes", level: "Variante", required: "opt", note: 'Objeto JSON, ej. {"potencia": "550W"}. Lo que distingue una variante de otra.' },
-  { name: "price", level: "Variante", required: "req", note: "Punto decimal, sin separador de miles." },
-  { name: "price_input_mode", level: "Variante", required: "cond", note: "net (sin IVA, por defecto) o final (con IVA incluido — se convierte a neto solo)." },
+  { name: "price_ars", level: "Variante", required: "cond", note: "Precio neto en pesos. Punto decimal, sin separador de miles. Al crear, hace falta price_ars o price_usd (al menos uno)." },
+  { name: "price_usd", level: "Variante", required: "cond", note: "Precio neto en dólares. Mismo formato que price_ars. Al crear, hace falta price_ars o price_usd (al menos uno)." },
+  { name: "price", level: "Variante", required: "none", note: "Alias antiguo de price_usd — solo se usa si la columna price_usd no está en el archivo. No se exporta más." },
+  { name: "price_input_mode", level: "Variante", required: "cond", note: "net (sin IVA, por defecto) o final (con IVA incluido — se convierte a neto solo). Aplica por igual a price_ars y price_usd." },
   { name: "stock_qty", level: "Variante", required: "opt", note: "Número entero. Por defecto 0 al crear." },
-  { name: "final_price", level: "—", required: "none", note: "Solo aparece al exportar (precio con IVA calculado). Si la dejás al importar, no hace nada." },
+  { name: "final_price_ars", level: "—", required: "none", note: "Solo aparece al exportar (precio en ARS con IVA calculado). Si la dejás al importar, no hace nada." },
+  { name: "final_price_usd", level: "—", required: "none", note: "Solo aparece al exportar (precio en USD con IVA calculado). Si la dejás al importar, no hace nada." },
 ];
 
 const REQ_LABEL: Record<string, { text: string; className: string }> = {
@@ -189,7 +192,8 @@ export default function ProductCsvHelpPage() {
             Obligatorios del producto: <code>slug</code>, <code>name</code>, <code>iva_rate</code>.
           </li>
           <li>
-            Obligatorios de cada variante: <code>sku</code>, <code>variant_name</code>, <code>price</code>.
+            Obligatorios de cada variante: <code>sku</code>, <code>variant_name</code>, y al menos uno de{" "}
+            <code>price_ars</code> / <code>price_usd</code>.
           </li>
           <li>
             El resto es opcional — si no lo completás, se usa un valor por defecto (<code>made_to_order</code>{" "}
@@ -199,7 +203,7 @@ export default function ProductCsvHelpPage() {
         <CsvExample
           caption="producto-simple.csv"
           hint="1 fila = 1 producto sin variantes"
-          cols={["slug", "name", "iva_rate", "category_slug", "sku", "variant_name", "price", "stock_qty"]}
+          cols={["slug", "name", "iva_rate", "category_slug", "sku", "variant_name", "price_ars", "price_usd", "stock_qty"]}
           rows={[
             [
               "camara-ip-exterior-4mp-plus",
@@ -209,6 +213,7 @@ export default function ProductCsvHelpPage() {
               "CAM-4MP-PLUS",
               "Cámara IP Exterior 4MP Plus",
               "112000",
+              "",
               "10",
             ],
           ]}
@@ -229,7 +234,7 @@ export default function ProductCsvHelpPage() {
           </li>
           <li>
             <strong>Cambia en cada fila</strong>: <code>sku</code>, <code>variant_name</code>,{" "}
-            <code>attributes</code>, <code>price</code>, <code>stock_qty</code>.
+            <code>attributes</code>, <code>price_ars</code>, <code>price_usd</code>, <code>stock_qty</code>.
           </li>
           <li>
             <code>attributes</code> es un JSON con lo que distingue a la variante, ej.{" "}
@@ -239,7 +244,7 @@ export default function ProductCsvHelpPage() {
         <CsvExample
           caption="panel-solar.csv"
           hint="mismo slug, sku distinto por variante"
-          cols={["slug", "name", "iva_rate", "sku", "variant_name", "attributes", "price", "stock_qty"]}
+          cols={["slug", "name", "iva_rate", "sku", "variant_name", "attributes", "price_ars", "price_usd", "stock_qty"]}
           rows={[
             [
               "panel-solar-550w",
@@ -248,7 +253,8 @@ export default function ProductCsvHelpPage() {
               "PS-550W-STD",
               "Panel Solar 550W · Estándar",
               '{"potencia": "550W"}',
-              "125000",
+              "",
+              "125",
               "20",
             ],
             [
@@ -258,7 +264,8 @@ export default function ProductCsvHelpPage() {
               "PS-550W-BIF",
               "Panel Solar 550W · Bifacial",
               '{"potencia": "550W", "tipo": "bifacial"}',
-              "149000",
+              "",
+              "149",
               "12",
             ],
           ]}
@@ -289,12 +296,12 @@ export default function ProductCsvHelpPage() {
         </ol>
         <CsvExample
           caption="actualizar-precios.csv"
-          hint="solo toca price"
-          cols={["sku", "price"]}
+          hint="solo toca price_usd"
+          cols={["sku", "price_usd"]}
           rows={[
-            ["PS-550W-STD", "132000"],
-            ["PS-550W-BIF", "156000"],
-            ["CAM-4MP-PLUS", "119000"],
+            ["PS-550W-STD", "132"],
+            ["PS-550W-BIF", "156"],
+            ["CAM-4MP-PLUS", "119"],
           ]}
         />
         <CsvExample
@@ -313,8 +320,10 @@ export default function ProductCsvHelpPage() {
             <strong>borra</strong> el valor actual.
           </li>
           <li>
-            En campos obligatorios (<code>name</code>, <code>slug</code>, <code>sku</code>, <code>variant_name</code>,{" "}
-            <code>price</code>) → esa fila se rechaza con un error, el resto del archivo se sigue procesando.
+            En campos obligatorios (<code>name</code>, <code>slug</code>, <code>sku</code>, <code>variant_name</code>
+            ) → esa fila se rechaza con un error, el resto del archivo se sigue procesando. Para{" "}
+            <code>price_ars</code>/<code>price_usd</code>, dejar una vacía en una fila de actualización no la borra
+            — solo crear un producto nuevo exige que al menos una de las dos tenga valor.
           </li>
         </ul>
       </Section>
