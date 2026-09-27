@@ -1,10 +1,14 @@
 from enum import Enum
 
 
-class PackageComplexity(str, Enum):
-    basico = "basico"
-    medio = "medio"
-    avanzado = "avanzado"
+class PackagePricingMode(str, Enum):
+    final_price = "final_price"
+    discount_percent = "discount_percent"
+
+
+class PackageItemKind(str, Enum):
+    product = "product"
+    supply = "supply"
 
 
 class ConsultationType(str, Enum):

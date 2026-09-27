@@ -46,6 +46,7 @@ class SupplyRepository(BaseRepository[Supply]):
             name=data.name,
             description=data.description,
             iva_rate=data.iva_rate,
+            image_url=data.image_url,
             is_active=data.is_active,
         )
         self.db.add(obj)

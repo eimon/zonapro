@@ -1,8 +1,17 @@
 import uuid
+from dataclasses import dataclass
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from repositories.product_repository import ProductRepository, ProductVariantRepository
 from schemas.product import ProductCreate, ProductUpdate, ProductVariantCreate, ProductVariantUpdate
+from schemas.catalog import (
+    CatalogResponse,
+    CatalogProductItem,
+    CatalogCategoryRef,
+    CatalogCategoryFacet,
+    CatalogFacetOption,
+    CatalogFacets,
+)
 from models.product import Product, ProductVariant
 from models.enums import IvaRate
 from exceptions.general import NotFoundException, ConflictException, BadRequestException
@@ -24,6 +33,91 @@ def _attach_variant_final_prices(product: Product) -> Product:
     for variant in product.variants:
         variant.final_price = _compute_final_price(variant.price, product.iva_rate)
     return product
+
+
+# ── Public catalog (faceted search) ─────────────────────────────────────────
+
+# Fixed price buckets, evaluated on a product's from_price (its cheapest
+# active variant's final price). Labels match the storefront design exactly.
+_PRICE_BUCKETS: list[tuple[str, str]] = [
+    ("lte_300k", "Hasta $ 300.000"),
+    ("300k_1500k", "$ 300.000 a $ 1.500.000"),
+    ("gt_1500k", "Más de $ 1.500.000"),
+]
+_PRICE_BUCKET_THRESHOLDS = (Decimal("300000"), Decimal("1500000"))
+
+
+def _price_bucket_id(price: Decimal) -> str:
+    low, high = _PRICE_BUCKET_THRESHOLDS
+    if price <= low:
+        return "lte_300k"
+    if price <= high:
+        return "300k_1500k"
+    return "gt_1500k"
+
+
+_AVAILABILITY_LABELS: dict[str, str] = {
+    "in_stock": "En stock",
+    "made_to_order": "A pedido",
+    "out_of_stock": "Sin stock",
+}
+# Ordering used for both the facet list and the "featured" sort tie-break.
+_AVAILABILITY_ORDER = ["in_stock", "made_to_order", "out_of_stock"]
+
+
+@dataclass
+class _CatalogRow:
+    """Internal, pre-computed representation of one catalog-eligible product
+    — built once per request from the raw Product+variants, then reused for
+    both filtering/faceting and the final response items."""
+
+    product: Product
+    from_price: Decimal
+    from_price_net: Decimal
+    has_multiple_prices: bool
+    variant_count: int
+    availability: str
+    category_slug: str | None
+    category_name: str | None
+    price_bucket: str
+
+
+def _build_catalog_row(product: Product) -> "_CatalogRow | None":
+    active_variants = [v for v in product.variants if v.deleted_at is None]
+    if not active_variants:
+        return None  # products need >=1 active, non-deleted variant
+
+    final_prices = [_compute_final_price(v.price, product.iva_rate) for v in active_variants]
+    cheapest_variant = min(active_variants, key=lambda v: _compute_final_price(v.price, product.iva_rate))
+    from_price = min(final_prices)
+    from_price_net = cheapest_variant.price
+    has_multiple_prices = len(set(final_prices)) > 1
+
+    if product.made_to_order:
+        availability = "made_to_order"
+    elif sum(v.stock_qty for v in active_variants) > 0:
+        availability = "in_stock"
+    else:
+        availability = "out_of_stock"
+
+    category_slug = product.category.slug if product.category else None
+    category_name = product.category.name if product.category else None
+
+    return _CatalogRow(
+        product=product,
+        from_price=from_price,
+        from_price_net=from_price_net,
+        has_multiple_prices=has_multiple_prices,
+        variant_count=len(active_variants),
+        availability=availability,
+        category_slug=category_slug,
+        category_name=category_name,
+        price_bucket=_price_bucket_id(from_price),
+    )
+
+
+def _variants_label(variant_count: int) -> str:
+    return "Variante única" if variant_count == 1 else f"{variant_count} variantes"
 
 
 class ProductService:
@@ -52,6 +146,136 @@ class ProductService:
             limit=limit,
         )
         return [_attach_variant_final_prices(p) for p in products]
+
+    async def get_catalog(
+        self,
+        q: str | None,
+        categories: list[str],
+        availabilities: list[str],
+        prices: list[str],
+        sort: str,
+        page: int,
+        page_size: int,
+    ) -> CatalogResponse:
+        raw_products = await self.repo.get_catalog_products()
+        rows = [row for p in raw_products if (row := _build_catalog_row(p)) is not None]
+
+        q_norm = (q or "").strip().lower()
+        categories_set = set(categories)
+        availabilities_set = set(availabilities)
+        prices_set = set(prices)
+
+        def matches(row: _CatalogRow, skip: str | None) -> bool:
+            if q_norm and q_norm not in row.product.name.lower():
+                return False
+            if skip != "category" and categories_set and row.category_slug not in categories_set:
+                return False
+            if skip != "availability" and availabilities_set and row.availability not in availabilities_set:
+                return False
+            if skip != "price" and prices_set and row.price_bucket not in prices_set:
+                return False
+            return True
+
+        # Disjunctive faceting: OR within a facet, AND across facets. Each
+        # facet's own counts ignore its own selection (skip=<facet>) so
+        # options never "vanish" once picked — mirrors the approved design's
+        # renderVals() logic exactly.
+
+        # Category/availability options are only OFFERED when they have >=1
+        # product somewhere in the whole active catalog (no filters at all,
+        # not even q) — a category with zero products across the whole
+        # catalog is omitted entirely, not just disabled.
+        whole_catalog_categories: dict[str, str] = {}
+        whole_catalog_availability: set[str] = set()
+        for row in rows:
+            if row.category_slug:
+                whole_catalog_categories[row.category_slug] = row.category_name or row.category_slug
+            whole_catalog_availability.add(row.availability)
+
+        category_facet = [
+            CatalogCategoryFacet(
+                slug=slug,
+                name=name,
+                count=sum(1 for r in rows if matches(r, "category") and r.category_slug == slug),
+            )
+            for slug, name in sorted(whole_catalog_categories.items(), key=lambda kv: kv[1])
+        ]
+
+        availability_facet = [
+            CatalogFacetOption(
+                id=av_id,
+                label=_AVAILABILITY_LABELS[av_id],
+                count=sum(1 for r in rows if matches(r, "availability") and r.availability == av_id),
+            )
+            for av_id in _AVAILABILITY_ORDER
+            if av_id in whole_catalog_availability
+        ]
+
+        # Price buckets are fixed (not data-driven), so unlike category/
+        # availability they're never omitted — a zero-count bucket is still
+        # returned and the web disables it unless already selected.
+        price_facet = [
+            CatalogFacetOption(
+                id=bucket_id,
+                label=label,
+                count=sum(1 for r in rows if matches(r, "price") and r.price_bucket == bucket_id),
+            )
+            for bucket_id, label in _PRICE_BUCKETS
+        ]
+
+        results = [r for r in rows if matches(r, None)]
+
+        if sort == "price_asc":
+            results.sort(key=lambda r: r.from_price)
+        elif sort == "price_desc":
+            results.sort(key=lambda r: r.from_price, reverse=True)
+        else:
+            # "featured" (default): in-stock first, then made-to-order, then
+            # out-of-stock; newest first within each group.
+            availability_rank = {av: i for i, av in enumerate(_AVAILABILITY_ORDER)}
+            results.sort(
+                key=lambda r: (
+                    availability_rank[r.availability],
+                    -r.product.created_at.timestamp(),
+                )
+            )
+
+        total = len(results)
+        start = (page - 1) * page_size
+        page_rows = results[start : start + page_size]
+
+        items = [
+            CatalogProductItem(
+                id=r.product.id,
+                name=r.product.name,
+                slug=r.product.slug,
+                image_url=r.product.image_url,
+                category=(
+                    CatalogCategoryRef(slug=r.category_slug, name=r.category_name)
+                    if r.category_slug and r.category_name
+                    else None
+                ),
+                from_price=r.from_price,
+                from_price_net=r.from_price_net,
+                has_multiple_prices=r.has_multiple_prices,
+                variant_count=r.variant_count,
+                variants_label=_variants_label(r.variant_count),
+                availability=r.availability,
+            )
+            for r in page_rows
+        ]
+
+        return CatalogResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            facets=CatalogFacets(
+                categories=category_facet,
+                availability=availability_facet,
+                price=price_facet,
+            ),
+        )
 
     async def get_by_id(self, id: uuid.UUID) -> Product:
         obj = await self.repo.get_with_variants(id)

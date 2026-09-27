@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
 import { api, type Supply } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { SupplyImageField } from "@/components/supply-image-field";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
@@ -23,6 +24,12 @@ const variantSchema = z.object({
 const schema = z.object({
   name: z.string().min(1, "Nombre requerido"),
   description: z.string().optional(),
+  image_url: z
+    .string()
+    .refine((v) => v === "" || v.startsWith("/") || /^https?:\/\//i.test(v), {
+      message: "URL inválida",
+    })
+    .optional(),
   is_active: z.boolean(),
   iva_rate: z.enum(["0", "10.5", "21"]),
   variants: z.array(variantSchema).min(1, "Agregá al menos una variante"),
@@ -93,6 +100,7 @@ export default function EditarInsumoPage() {
         reset({
           name: s.name,
           description: s.description ?? "",
+          image_url: s.image_url ?? "",
           is_active: s.is_active,
           iva_rate: s.iva_rate,
           variants: s.variants.map((v) => ({
@@ -122,6 +130,7 @@ export default function EditarInsumoPage() {
         {
           name: data.name,
           description: data.description || null,
+          image_url: data.image_url || null,
           is_active: data.is_active,
           iva_rate: data.iva_rate,
         },
@@ -203,6 +212,16 @@ export default function EditarInsumoPage() {
               placeholder="Descripción del insumo (opcional)"
               className={`${inputClass} resize-none`}
               {...register("description")}
+            />
+          </InputField>
+
+          <InputField label="Imagen" error={errors.image_url?.message}>
+            <Controller
+              control={control}
+              name="image_url"
+              render={({ field }) => (
+                <SupplyImageField value={field.value ?? ""} onChange={field.onChange} />
+              )}
             />
           </InputField>
 

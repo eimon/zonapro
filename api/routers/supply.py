@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import settings
 from core.database import get_db
 from core.roles import Permission
+from core.uploads import save_supply_image
 from dependencies.auth import has_role
 from exceptions.general import BadRequestException
 from services.supply_service import SupplyService
@@ -48,6 +49,15 @@ async def create_supply(
     _=Depends(has_role(Permission.PRODUCT_MANAGE)),
 ):
     return await SupplyService(db).create(data)
+
+
+@router.post("/upload-image")
+async def upload_supply_image(
+    file: UploadFile = File(...),
+    _=Depends(has_role(Permission.PRODUCT_MANAGE)),
+):
+    url = await save_supply_image(file)
+    return {"url": url}
 
 
 @router.get("/export")  # MUST be declared before GET /{supply_id} — "export" is not a UUID

@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Literal
 from pydantic import BaseModel, Field
 from models.enums import IvaRate
+from schemas.catalog import CatalogCategoryRef
 
 
 class ProductVariantCreate(BaseModel):
@@ -68,6 +69,9 @@ class ProductResponse(BaseModel):
     image_url: str | None
     made_to_order: bool
     category_id: uuid.UUID | None
+    # Nested category slug/name for the storefront (breadcrumb links, spec
+    # table). None when the product has no category.
+    category: CatalogCategoryRef | None = None
     is_active: bool
     variants: list[ProductVariantResponse] = []
 

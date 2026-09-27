@@ -1,9 +1,25 @@
 import uuid
+from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from models.package import Package, PackageOptionGroup, PackageOption
+from models.package import Package, PackageItem
+from models.product import Product, ProductVariant
+from models.supply import SupplyVariant
+from models.enums import PackageItemKind
 from repositories.base import BaseRepository
+
+
+def _item_loaders():
+    # Both branches are always attached (regardless of kind) — selectinload
+    # is a no-op for the FK that's NULL on a given row.
+    return (
+        selectinload(Package.items)
+        .selectinload(PackageItem.product_variant)
+        .selectinload(ProductVariant.product)
+        .selectinload(Product.category),
+        selectinload(Package.items).selectinload(PackageItem.supply_variant).selectinload(SupplyVariant.supply),
+    )
 
 
 class PackageRepository(BaseRepository[Package]):
@@ -16,24 +32,19 @@ class PackageRepository(BaseRepository[Package]):
         )
         return result.scalars().first()
 
-    async def get_with_groups(self, id: uuid.UUID) -> Package | None:
+    async def get_with_items(self, id: uuid.UUID) -> Package | None:
         result = await self.db.execute(
             select(Package)
             .where(Package.id == id, Package.deleted_at.is_(None))
-            .options(
-                selectinload(Package.option_groups).selectinload(PackageOptionGroup.options)
-            )
+            .options(*_item_loaders())
         )
         return result.scalars().first()
 
-    async def get_all_with_groups(self) -> list[Package]:
-        result = await self.db.execute(
-            select(Package)
-            .where(Package.deleted_at.is_(None))
-            .options(
-                selectinload(Package.option_groups).selectinload(PackageOptionGroup.options)
-            )
-        )
+    async def get_all_with_items(self, only_active: bool = False) -> list[Package]:
+        query = select(Package).where(Package.deleted_at.is_(None)).options(*_item_loaders())
+        if only_active:
+            query = query.where(Package.is_active.is_(True))
+        result = await self.db.execute(query)
         return list(result.scalars().all())
 
     async def create(
@@ -41,16 +52,16 @@ class PackageRepository(BaseRepository[Package]):
         name: str,
         slug: str,
         description: str | None,
-        complexity,
-        base_price,
+        pricing_mode,
+        pricing_value: Decimal,
         is_active: bool,
     ) -> Package:
         obj = Package(
             name=name,
             slug=slug,
             description=description,
-            complexity=complexity,
-            base_price=base_price,
+            pricing_mode=pricing_mode,
+            pricing_value=pricing_value,
             is_active=is_active,
         )
         self.db.add(obj)
@@ -58,41 +69,36 @@ class PackageRepository(BaseRepository[Package]):
         await self.db.refresh(obj)
         return obj
 
-    async def create_option_group(
+    async def create_item(
         self,
         package_id: uuid.UUID,
-        name: str,
+        kind: PackageItemKind,
         display_order: int,
-    ) -> PackageOptionGroup:
-        group = PackageOptionGroup(
+        product_variant_id: uuid.UUID | None,
+        supply_variant_id: uuid.UUID | None,
+        quantity: Decimal,
+    ) -> PackageItem:
+        item = PackageItem(
             package_id=package_id,
-            name=name,
+            kind=kind,
             display_order=display_order,
+            product_variant_id=product_variant_id,
+            supply_variant_id=supply_variant_id,
+            quantity=quantity,
         )
-        self.db.add(group)
+        self.db.add(item)
         await self.db.flush()
-        await self.db.refresh(group)
-        return group
+        await self.db.refresh(item)
+        return item
 
-    async def create_option(
-        self,
-        group_id: uuid.UUID,
-        label: str,
-        price_delta,
-        is_default: bool,
-        display_order: int,
-    ) -> PackageOption:
-        option = PackageOption(
-            group_id=group_id,
-            label=label,
-            price_delta=price_delta,
-            is_default=is_default,
-            display_order=display_order,
-        )
-        self.db.add(option)
+    async def replace_items(self, package: Package, items_data: list[dict]) -> None:
+        """Delete-all + re-create — the service already validated every new
+        item, so this stays a dumb wholesale swap."""
+        for item in list(package.items):
+            await self.db.delete(item)
         await self.db.flush()
-        await self.db.refresh(option)
-        return option
+        for data in items_data:
+            await self.create_item(package_id=package.id, **data)
 
     async def update(self, obj: Package, **kwargs) -> Package:
         for key, value in kwargs.items():

@@ -41,7 +41,8 @@ async function request<T>(
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
-export type PackageComplexity = "basico" | "medio" | "avanzado";
+export type PackagePricingMode = "final_price" | "discount_percent";
+export type PackageItemKind = "product" | "supply";
 export type ConsultationType = "product" | "package" | "free_form";
 export type ConsultationStatus = "pendiente" | "en_proceso" | "cerrada";
 export type QuoteStatus = "borrador" | "enviada" | "aprobada" | "rechazada" | "vencida";
@@ -108,8 +109,59 @@ export type Product = {
   image_url: string | null;
   made_to_order: boolean;
   category_id: string | null;
+  category: { slug: string; name: string } | null;
   is_active: boolean;
   variants: ProductVariant[];
+};
+
+// ── Public catalog (faceted search) ──────────────────────────────────────────
+
+export type CatalogAvailability = "in_stock" | "made_to_order" | "out_of_stock";
+export type CatalogSort = "featured" | "price_asc" | "price_desc";
+
+export type CatalogCategoryRef = { slug: string; name: string };
+
+export type CatalogProductItem = {
+  id: string;
+  name: string;
+  slug: string;
+  image_url: string | null;
+  category: CatalogCategoryRef | null;
+  from_price: string;
+  // NET price (no IVA) of the same min-price variant as from_price — shown
+  // as the muted "Precio sin impuestos" detail below it.
+  from_price_net: string;
+  has_multiple_prices: boolean;
+  variant_count: number;
+  variants_label: string;
+  availability: CatalogAvailability;
+};
+
+export type CatalogFacetOption = { id: string; label: string; count: number };
+export type CatalogCategoryFacet = { slug: string; name: string; count: number };
+
+export type CatalogFacets = {
+  categories: CatalogCategoryFacet[];
+  availability: CatalogFacetOption[];
+  price: CatalogFacetOption[];
+};
+
+export type CatalogResponse = {
+  items: CatalogProductItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  facets: CatalogFacets;
+};
+
+export type CatalogParams = {
+  q?: string;
+  category?: string[];
+  availability?: string[];
+  price?: string[];
+  sort?: CatalogSort;
+  page?: number;
+  page_size?: number;
 };
 
 export type ImportRowError = { row_number: number | null; identifier: string | null; message: string };
@@ -139,6 +191,7 @@ export type Supply = {
   name: string;
   description: string | null;
   iva_rate: IvaRate;
+  image_url: string | null;
   is_active: boolean;
   variants: SupplyVariant[];
 };
@@ -153,21 +206,30 @@ export type SupplyImportReport = {
   errors: ImportRowError[];
 };
 
-export type PackageOption = {
+export type PackageItem = {
   id: string;
-  group_id: string;
-  label: string;
-  price_delta: string;
-  is_default: boolean;
+  kind: PackageItemKind;
   display_order: number;
-};
-
-export type PackageOptionGroup = {
-  id: string;
-  package_id: string;
+  product_variant_id: string | null;
+  supply_variant_id: string | null;
   name: string;
-  display_order: number;
-  options: PackageOption[];
+  sku: string;
+  // The parent product's/supply's IVA rate.
+  iva_rate: IvaRate;
+  // IVA-inclusive (gross) — the customer-facing unit price/subtotal.
+  unit_price: string;
+  // NET (no IVA) — the stored/pricing basis, shown as the muted "sin
+  // impuestos" detail.
+  unit_price_net: string;
+  quantity: number;
+  line_total: string;
+  line_total_net: string;
+  image_url: string | null;
+  // The parent product's category slug (product items only) — used to decide
+  // whether a package's promo card should show under an active category filter.
+  category_slug: string | null;
+  // The parent product's id (product items only) — links a row to /productos/{id}.
+  product_id: string | null;
 };
 
 export type Package = {
@@ -175,10 +237,37 @@ export type Package = {
   name: string;
   slug: string;
   description: string | null;
-  complexity: PackageComplexity;
-  base_price: string;
   is_active: boolean;
-  option_groups: PackageOptionGroup[];
+  pricing_mode: PackagePricingMode;
+  pricing_value: string;
+  // IVA-inclusive (gross) — the customer-facing main price everywhere.
+  list_price: string;
+  final_price: string;
+  // NET (no IVA) — the stored/pricing basis; final_price_net is shown as the
+  // muted "Precio sin impuestos" detail below final_price.
+  list_price_net: string;
+  final_price_net: string;
+  discount_percent: string;
+  is_available: boolean;
+  items: PackageItem[];
+};
+
+export type PackageItemInput = {
+  kind: PackageItemKind;
+  display_order: number;
+  product_variant_id?: string | null;
+  supply_variant_id?: string | null;
+  quantity: number;
+};
+
+export type PackageInput = {
+  name: string;
+  slug: string;
+  description?: string | null;
+  is_active: boolean;
+  pricing_mode: PackagePricingMode;
+  pricing_value: number;
+  items: PackageItemInput[];
 };
 
 export type ConsultationCreate = {
@@ -365,6 +454,18 @@ export const api = {
       return request<Product[]>(`/api/v1/products/${query}`);
     },
     get: (id: string) => request<Product>(`/api/v1/products/${id}`),
+    catalog: (params?: CatalogParams) => {
+      const qs = new URLSearchParams();
+      if (params?.q) qs.set("q", params.q);
+      for (const c of params?.category ?? []) qs.append("category", c);
+      for (const a of params?.availability ?? []) qs.append("availability", a);
+      for (const p of params?.price ?? []) qs.append("price", p);
+      if (params?.sort) qs.set("sort", params.sort);
+      if (params?.page) qs.set("page", String(params.page));
+      if (params?.page_size) qs.set("page_size", String(params.page_size));
+      const query = qs.toString() ? `?${qs.toString()}` : "";
+      return request<CatalogResponse>(`/api/v1/products/catalog${query}`);
+    },
     create: (data: unknown, token: string) =>
       request<Product>("/api/v1/products/", { method: "POST", body: JSON.stringify(data) }, token),
     update: (id: string, data: unknown, token: string) =>
@@ -435,6 +536,20 @@ export const api = {
       request<Supply>(`/api/v1/supplies/${id}`, { method: "PATCH", body: JSON.stringify(data) }, token),
     remove: (id: string, token: string) =>
       request<void>(`/api/v1/supplies/${id}`, { method: "DELETE" }, token),
+    uploadImage: async (file: File, token: string): Promise<{ url: string }> => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_URL}/api/v1/supplies/upload-image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new ApiError(body.detail ?? "Error al subir la imagen", res.status);
+      }
+      return res.json();
+    },
     variants: {
       create: (supplyId: string, data: unknown, token: string) =>
         request<SupplyVariant>(`/api/v1/supplies/${supplyId}/variants`, { method: "POST", body: JSON.stringify(data) }, token),
@@ -469,11 +584,15 @@ export const api = {
   },
 
   packages: {
+    // Public storefront — active + available packages only.
     list: () => request<Package[]>("/api/v1/packages/"),
     get: (id: string) => request<Package>(`/api/v1/packages/${id}`),
-    create: (data: unknown, token: string) =>
+    // Dashboard — every non-deleted package, active or not.
+    listAdmin: (token: string) => request<Package[]>("/api/v1/packages/admin", {}, token),
+    getAdmin: (id: string, token: string) => request<Package>(`/api/v1/packages/${id}/admin`, {}, token),
+    create: (data: PackageInput, token: string) =>
       request<Package>("/api/v1/packages/", { method: "POST", body: JSON.stringify(data) }, token),
-    update: (id: string, data: unknown, token: string) =>
+    update: (id: string, data: Partial<PackageInput>, token: string) =>
       request<Package>(`/api/v1/packages/${id}`, { method: "PATCH", body: JSON.stringify(data) }, token),
     remove: (id: string, token: string) =>
       request<void>(`/api/v1/packages/${id}`, { method: "DELETE" }, token),

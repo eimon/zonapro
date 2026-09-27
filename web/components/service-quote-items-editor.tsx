@@ -80,6 +80,13 @@ function itemSku(item: ServiceQuoteItemDraft): string | null {
   return null;
 }
 
+// Supplies and manual concepts accept fractional quantities (e.g. 2.5 m of
+// cable); products stay whole units. Returns null for empty/invalid/<= 0.
+function parseDecimalQuantity(value: string): number | null {
+  const n = Math.round(parseFloat(value.replace(",", ".")) * 100) / 100;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function ServiceQuoteItemsEditor({
   products,
   supplies,
@@ -103,19 +110,19 @@ export function ServiceQuoteItemsEditor({
 
   // Insumo picker state
   const [supplyVariantId, setSupplyVariantId] = useState("");
-  const [supplyQuantity, setSupplyQuantity] = useState(1);
+  const [supplyQuantity, setSupplyQuantity] = useState("1");
 
   // Manual concept form state
   const [conceptDescription, setConceptDescription] = useState("");
   const [conceptUnitPrice, setConceptUnitPrice] = useState("");
-  const [conceptQuantity, setConceptQuantity] = useState(1);
+  const [conceptQuantity, setConceptQuantity] = useState("1");
   const [conceptIvaRate, setConceptIvaRate] = useState("21");
 
   // Inline edit state — only ever active for a kind="service" row (manual
   // concept lines are the only ones with an edit affordance).
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editDescription, setEditDescription] = useState("");
-  const [editQuantity, setEditQuantity] = useState(1);
+  const [editQuantity, setEditQuantity] = useState("1");
   const [editUnitPrice, setEditUnitPrice] = useState("");
   const [editIvaRate, setEditIvaRate] = useState("21");
 
@@ -157,39 +164,41 @@ export function ServiceQuoteItemsEditor({
 
   function handleAddSupply() {
     const option = supplyVariantOptions.find((o) => o.variantId === supplyVariantId);
-    if (!option || supplyQuantity < 1) return;
+    const quantity = parseDecimalQuantity(supplyQuantity);
+    if (!option || quantity === null) return;
     onAdd({
       kind: "supply",
       supply_variant_id: option.variantId,
       supply_name: option.label,
       supply_sku: option.sku,
-      quantity: supplyQuantity,
+      quantity,
       unit_price: option.price ?? "0",
       iva_rate: option.ivaRate,
     });
     setSupplyVariantId("");
-    setSupplyQuantity(1);
+    setSupplyQuantity("1");
   }
 
   function handleAddConcept() {
-    if (!conceptDescription.trim() || !conceptUnitPrice || conceptQuantity < 1) return;
+    const quantity = parseDecimalQuantity(conceptQuantity);
+    if (!conceptDescription.trim() || !conceptUnitPrice || quantity === null) return;
     onAdd({
       kind: "service",
       service_description: conceptDescription.trim(),
-      quantity: conceptQuantity,
+      quantity,
       unit_price: conceptUnitPrice,
       iva_rate: conceptIvaRate,
     });
     setConceptDescription("");
     setConceptUnitPrice("");
-    setConceptQuantity(1);
+    setConceptQuantity("1");
     setConceptIvaRate("21");
   }
 
   function startEditConcept(index: number, item: Extract<ServiceQuoteItemDraft, { kind: "service" }>) {
     setEditingIndex(index);
     setEditDescription(item.service_description);
-    setEditQuantity(item.quantity);
+    setEditQuantity(String(item.quantity));
     setEditUnitPrice(item.unit_price);
     setEditIvaRate(item.iva_rate);
   }
@@ -199,10 +208,11 @@ export function ServiceQuoteItemsEditor({
   }
 
   function saveEditConcept(index: number) {
-    if (!editDescription.trim() || !editUnitPrice || editQuantity < 1) return;
+    const quantity = parseDecimalQuantity(editQuantity);
+    if (!editDescription.trim() || !editUnitPrice || quantity === null) return;
     onUpdate(index, {
       service_description: editDescription.trim(),
-      quantity: editQuantity,
+      quantity,
       unit_price: editUnitPrice,
       iva_rate: editIvaRate,
     });
@@ -273,9 +283,10 @@ export function ServiceQuoteItemsEditor({
                       <td className="px-3 py-2.5">
                         <input
                           type="number"
-                          min={1}
+                          min={0.01}
+                          step="0.01"
                           value={editQuantity}
-                          onChange={(e) => setEditQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                          onChange={(e) => setEditQuantity(e.target.value)}
                           className={`${inputClass} text-right`}
                         />
                       </td>
@@ -341,7 +352,7 @@ export function ServiceQuoteItemsEditor({
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-                      {item.quantity}
+                      {item.quantity.toLocaleString("es-AR")}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
                       {money(parseFloat(item.unit_price))}
@@ -439,9 +450,10 @@ export function ServiceQuoteItemsEditor({
           </select>
           <input
             type="number"
-            min={1}
+            min={0.01}
+            step="0.01"
             value={supplyQuantity}
-            onChange={(e) => setSupplyQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            onChange={(e) => setSupplyQuantity(e.target.value)}
             className={`${inputClass} sm:w-24`}
           />
           <button
@@ -471,9 +483,10 @@ export function ServiceQuoteItemsEditor({
           />
           <input
             type="number"
-            min={1}
+            min={0.01}
+            step="0.01"
             value={conceptQuantity}
-            onChange={(e) => setConceptQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            onChange={(e) => setConceptQuantity(e.target.value)}
             className={`${inputClass} sm:w-20`}
           />
           <input

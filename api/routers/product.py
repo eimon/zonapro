@@ -22,6 +22,7 @@ from schemas.product import (
     ProductVariantResponse,
     ImportReport,
 )
+from schemas.catalog import CatalogResponse, CatalogSort
 
 router = APIRouter(prefix=f"{settings.API_V1_STR}/products", tags=["products"])
 
@@ -45,6 +46,30 @@ async def list_products(
         made_to_order=made_to_order,
         skip=skip,
         limit=limit,
+    )
+
+
+@router.get("/catalog", response_model=CatalogResponse)  # MUST be declared before GET /{product_id}
+async def get_catalog(
+    q: str | None = Query(default=None),
+    category: list[str] = Query(default=[]),
+    availability: list[str] = Query(default=[]),
+    price: list[str] = Query(default=[]),
+    sort: CatalogSort = Query(default="featured"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=24, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """Public storefront catalog — server-side faceted search. See
+    ProductService.get_catalog for filter/facet semantics."""
+    return await ProductService(db).get_catalog(
+        q=q,
+        categories=category,
+        availabilities=availability,
+        prices=price,
+        sort=sort,
+        page=page,
+        page_size=page_size,
     )
 
 
