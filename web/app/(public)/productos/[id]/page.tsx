@@ -1,8 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { MessageSquare, Package as PackageIcon } from "lucide-react";
 import { api } from "@/lib/api";
+import { resolveStoreCurrency } from "@/lib/store-filters";
 import { ProductVariantPicker } from "@/components/store/product-variant-picker";
 import { RelatedGrid, type RelatedEntry } from "@/components/store/related-grid";
 
@@ -10,10 +12,14 @@ export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export default async function ProductoDetailPage({ params }: Props) {
+export default async function ProductoDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const sp = await searchParams;
+  const cookieStore = await cookies();
+  const currency = resolveStoreCurrency(sp, cookieStore.get("store_currency")?.value);
 
   const product = await api.products.get(id).catch(() => null);
   if (!product) notFound();
@@ -22,14 +28,17 @@ export default async function ProductoDetailPage({ params }: Props) {
     api.packages.list(),
     // A generous page_size keeps this a single request — the storefront's
     // active catalog is small (see ProductRepository.get_catalog_products).
-    api.products.catalog({ page_size: 100 }),
+    api.products.catalog({ currency, page_size: 100 }),
   ]);
 
   // "También te puede interesar": packages that include this product first,
-  // then other products (same category first), capped at 4.
+  // then other products (same category first), capped at 4 — only entries
+  // actually available in the selected currency.
   const variantIds = new Set(product.variants.map((v) => v.id));
-  const relatedPackages = packages.filter((pkg) =>
-    pkg.items.some((item) => item.product_variant_id && variantIds.has(item.product_variant_id))
+  const relatedPackages = packages.filter(
+    (pkg) =>
+      pkg.prices[currency] !== null &&
+      pkg.items.some((item) => item.product_variant_id && variantIds.has(item.product_variant_id))
   );
   const otherProducts = catalog.items.filter((item) => item.id !== product.id);
   const sameCategory = otherProducts.filter((item) => item.category?.slug === product.category?.slug);
@@ -54,14 +63,14 @@ export default async function ProductoDetailPage({ params }: Props) {
             Inicio
           </Link>
           <span aria-hidden="true">/</span>
-          <Link href="/productos" className="hover:text-zinc-700 dark:hover:text-zinc-200">
+          <Link href={`/productos?currency=${currency}`} className="hover:text-zinc-700 dark:hover:text-zinc-200">
             Tienda
           </Link>
           {product.category && (
             <>
               <span aria-hidden="true">/</span>
               <Link
-                href={`/productos?category=${product.category.slug}`}
+                href={`/productos?category=${product.category.slug}&currency=${currency}`}
                 className="hover:text-zinc-700 dark:hover:text-zinc-200"
               >
                 {product.category.name}
@@ -94,7 +103,7 @@ export default async function ProductoDetailPage({ params }: Props) {
             <div className="flex flex-col gap-2.5">
               {product.category && (
                 <Link
-                  href={`/productos?category=${product.category.slug}`}
+                  href={`/productos?category=${product.category.slug}&currency=${currency}`}
                   className="text-[13px] font-medium text-zinc-500 dark:text-zinc-400 hover:text-brand-blue"
                 >
                   {product.category.name}
@@ -108,7 +117,7 @@ export default async function ProductoDetailPage({ params }: Props) {
               )}
             </div>
 
-            <ProductVariantPicker variants={product.variants} madeToOrder={product.made_to_order} />
+            <ProductVariantPicker variants={product.variants} madeToOrder={product.made_to_order} currency={currency} />
 
             <Link
               href={consultaHref}
@@ -143,11 +152,11 @@ export default async function ProductoDetailPage({ params }: Props) {
               <h2 id="rel-title" className="text-xl font-semibold text-zinc-900 dark:text-white">
                 También te puede interesar
               </h2>
-              <Link href="/productos" className="text-sm font-medium text-brand-blue hover:opacity-80 transition-opacity">
+              <Link href={`/productos?currency=${currency}`} className="text-sm font-medium text-brand-blue hover:opacity-80 transition-opacity">
                 Ver la tienda →
               </Link>
             </div>
-            <RelatedGrid entries={relatedEntries} />
+            <RelatedGrid entries={relatedEntries} currency={currency} />
           </section>
         )}
       </div>

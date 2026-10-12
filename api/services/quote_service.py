@@ -2,14 +2,13 @@ import uuid
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.pricing import quote_total, installation_cost_amount, items_iva_total, installation_cost_iva_amount
-from repositories.app_setting_repository import AppSettingRepository
 from repositories.quote_repository import QuoteRepository
 from repositories.product_repository import ProductVariantRepository
 from repositories.supply_repository import SupplyVariantRepository
 from schemas.quote import QuoteCreate, QuoteUpdate, QuoteItemCreate, QuoteItemUpdate
 from models.quote import Quote, QuoteItem
 from models.user import User
-from models.enums import QuoteItemKind, QuoteStatus, QuoteType, InstallationCostType
+from models.enums import QuoteItemKind, QuoteStatus, QuoteType, InstallationCostType, Currency
 from exceptions.general import NotFoundException, ForbiddenException, BadRequestException
 
 # Valid forward transitions only
@@ -43,6 +42,8 @@ _KIND_LABELS = {
     QuoteItemKind.supply: "insumos",
     QuoteItemKind.service: "conceptos manuales",
 }
+
+_VARIANT_PRICE_FIELD = {Currency.ARS: "price_ars", Currency.USD: "price_usd"}
 
 
 def _assert_item_kind_allowed(quote_type: QuoteType, kind: QuoteItemKind) -> None:
@@ -90,13 +91,8 @@ def _validate_installation_cost(
 class QuoteService:
     def __init__(self, db: AsyncSession):
         self.repo = QuoteRepository(db)
-        self.setting_repo = AppSettingRepository(db)
         self.variant_repo = ProductVariantRepository(db)
         self.supply_variant_repo = SupplyVariantRepository(db)
-
-    async def get_hourly_rate(self) -> Decimal:
-        val = await self.setting_repo.get_value("hourly_rate")
-        return Decimal(val or "0")
 
     def _check_ownership(self, quote: Quote, user: User) -> None:
         if "QUOTE_VIEW_ALL" not in (p.value if hasattr(p, "value") else p for p in user.permissions):
@@ -110,10 +106,10 @@ class QuoteService:
         # Fail fast on a bad payload before any row is written.
         for item_data in data.items:
             _assert_item_kind_allowed(data.quote_type, item_data.kind)
-        hourly_rate = await self.get_hourly_rate()
 
         quote = await self.repo.create_quote(
             quote_type=data.quote_type,
+            currency=data.currency,
             title=data.title,
             client_name=data.client_name,
             client_email=str(data.client_email),
@@ -131,7 +127,7 @@ class QuoteService:
         )
 
         for item_data in data.items:
-            await self._build_item(quote.id, item_data, hourly_rate, data.quote_type)
+            await self._build_item(quote.id, item_data, data.quote_type, data.currency)
 
         # Reload with items
         full_quote = await self.repo.get_with_items(quote.id)
@@ -141,8 +137,8 @@ class QuoteService:
         self,
         quote_id: uuid.UUID,
         item_data: QuoteItemCreate,
-        hourly_rate: Decimal,
         quote_type: QuoteType,
+        currency: Currency,
     ) -> QuoteItem:
         _assert_item_kind_allowed(quote_type, item_data.kind)
 
@@ -150,18 +146,31 @@ class QuoteService:
         product_sku_snapshot = None
         supply_name_snapshot = None
         supply_sku_snapshot = None
-        hourly_rate_snapshot = None
         iva_rate = Decimal("0")
+        unit_price = item_data.unit_price
+        price_field = _VARIANT_PRICE_FIELD[currency]
 
         if item_data.kind == QuoteItemKind.product and item_data.product_variant_id:
             variant = await self.variant_repo.get_with_product(item_data.product_variant_id)
-            if variant:
-                product_name_snapshot = (
-                    f"{variant.product.name} — {variant.name}" if variant.product else variant.name
+            if variant is None:
+                raise NotFoundException("Producto no encontrado")
+            product_name_snapshot = (
+                f"{variant.product.name} — {variant.name}" if variant.product else variant.name
+            )
+            product_sku_snapshot = variant.sku
+            if variant.product:
+                iva_rate = Decimal(variant.product.iva_rate.value)
+            # unit_price is always server-derived from the variant's price in
+            # the quote's own currency — never trusted from the client (same
+            # rule as iva_rate below). Rejected with a Spanish BadRequest if
+            # the variant has no price in that currency.
+            variant_price = getattr(variant, price_field)
+            if variant_price is None:
+                raise BadRequestException(
+                    f"'{product_sku_snapshot}' no tiene precio en {currency.value} — "
+                    "no se puede agregar a esta cotización"
                 )
-                product_sku_snapshot = variant.sku
-                if variant.product:
-                    iva_rate = Decimal(variant.product.iva_rate.value)
+            unit_price = variant_price
 
         if item_data.kind == QuoteItemKind.supply:
             supply_variant = (
@@ -175,16 +184,23 @@ class QuoteService:
             supply_sku_snapshot = supply_variant.sku
             # iva_rate is always server-derived from the supply — the client
             # value is ignored (mirrors kind=product's rule, D4). unit_price
-            # stays client-supplied, same as kind=product.
+            # is likewise always server-derived from the variant's price in
+            # the quote's currency, same as kind=product above.
             iva_rate = Decimal(supply_variant.supply.iva_rate.value)
+            variant_price = getattr(supply_variant, price_field)
+            if variant_price is None:
+                raise BadRequestException(
+                    f"'{supply_sku_snapshot}' no tiene precio en {currency.value} — "
+                    "no se puede agregar a esta cotización"
+                )
+            unit_price = variant_price
 
         if item_data.kind == QuoteItemKind.service:
-            hourly_rate_snapshot = hourly_rate
             # Client-supplied only for services; never trusted for products
             # or supplies.
             iva_rate = item_data.iva_rate if item_data.iva_rate is not None else Decimal("21")
 
-        subtotal = item_data.unit_price * item_data.quantity
+        subtotal = unit_price * item_data.quantity
 
         return await self.repo.create_item(
             quote_id=quote_id,
@@ -197,10 +213,8 @@ class QuoteService:
             supply_name_snapshot=supply_name_snapshot,
             supply_sku_snapshot=supply_sku_snapshot,
             service_description=item_data.service_description,
-            hours=item_data.hours,
-            hourly_rate_snapshot=hourly_rate_snapshot,
             quantity=item_data.quantity,
-            unit_price=item_data.unit_price,
+            unit_price=unit_price,
             subtotal=subtotal,
             iva_rate=iva_rate,
         )
@@ -233,6 +247,14 @@ class QuoteService:
         self._check_ownership(quote, user)
 
         update_data = data.model_dump(exclude_unset=True)
+
+        # Currency is locked once the quote has items — every existing item's
+        # unit_price snapshot is in the quote's current currency, and letting
+        # it change afterward would silently make those snapshots wrong.
+        if "currency" in update_data and update_data["currency"] != quote.currency and quote.items:
+            raise BadRequestException(
+                "No se puede cambiar la moneda de una cotización que ya tiene ítems cargados"
+            )
 
         # Validate status transition
         if "status" in update_data:
@@ -271,8 +293,7 @@ class QuoteService:
             raise NotFoundException("Cotización no encontrada")
         self._check_ownership(quote, user)
 
-        hourly_rate = await self.get_hourly_rate()
-        await self._build_item(quote_id, data, hourly_rate, quote.quote_type)
+        await self._build_item(quote_id, data, quote.quote_type, quote.currency)
         await self.repo.update_quote(quote, updated_by_id=user.id)
 
         updated = await self.repo.get_with_items(quote_id)

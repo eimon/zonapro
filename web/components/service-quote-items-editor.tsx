@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Check, Plus, Pencil, Trash2, Wrench, X } from "lucide-react";
-import type { Product, Supply } from "@/lib/api";
+import type { Currency, Product, Supply } from "@/lib/api";
+import { formatMoney } from "@/lib/format";
 
 // New, structurally separate editor for the servicios flow (D7′ — NOT a
 // tab on quote-items-editor.tsx). Offers three ways to add a line: a
@@ -52,10 +53,6 @@ export type ServiceQuoteItemDraft =
 const inputClass =
   "w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-blue/25 focus:border-brand-blue transition-all duration-150";
 
-function money(value: number) {
-  return `$${value.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 const KIND_LABELS: Record<ServiceQuoteItemDraft["kind"], string> = {
   product: "Producto",
   supply: "Insumo",
@@ -95,6 +92,7 @@ export function ServiceQuoteItemsEditor({
   onUpdate,
   onRemove,
   contemplaIva,
+  currency,
 }: {
   products: Product[];
   supplies: Supply[];
@@ -103,6 +101,12 @@ export function ServiceQuoteItemsEditor({
   onUpdate: (index: number, patch: Partial<Extract<ServiceQuoteItemDraft, { kind: "service" }>>) => void;
   onRemove: (index: number) => void;
   contemplaIva: boolean;
+  // Product/supply pickers only offer variants priced in the quote's own
+  // currency — adding anything else would be rejected server-side (see
+  // QuoteService._build_item's currency-price BadRequest). Manual concept
+  // lines (kind=service) are unaffected — their price is always
+  // client-supplied.
+  currency: Currency;
 }) {
   // Producto picker state
   const [productVariantId, setProductVariantId] = useState("");
@@ -126,24 +130,30 @@ export function ServiceQuoteItemsEditor({
   const [editUnitPrice, setEditUnitPrice] = useState("");
   const [editIvaRate, setEditIvaRate] = useState("21");
 
+  const priceField = currency === "ARS" ? "price_ars" : "price_usd";
+
   const productVariantOptions = products.flatMap((product) =>
-    product.variants.map((variant) => ({
-      variantId: variant.id,
-      label: `${product.name} — ${variant.name}`,
-      sku: variant.sku,
-      price: variant.price,
-      ivaRate: product.iva_rate,
-    }))
+    product.variants
+      .filter((variant) => variant[priceField] !== null)
+      .map((variant) => ({
+        variantId: variant.id,
+        label: `${product.name} — ${variant.name}`,
+        sku: variant.sku,
+        price: variant[priceField] as string,
+        ivaRate: product.iva_rate,
+      }))
   );
 
   const supplyVariantOptions = supplies.flatMap((supply) =>
-    supply.variants.map((variant) => ({
-      variantId: variant.id,
-      label: `${supply.name} — ${variant.name}`,
-      sku: variant.sku,
-      price: variant.price,
-      ivaRate: supply.iva_rate,
-    }))
+    supply.variants
+      .filter((variant) => variant[priceField] !== null)
+      .map((variant) => ({
+        variantId: variant.id,
+        label: `${supply.name} — ${variant.name}`,
+        sku: variant.sku,
+        price: variant[priceField] as string,
+        ivaRate: supply.iva_rate,
+      }))
   );
 
   function handleAddProduct() {
@@ -155,7 +165,7 @@ export function ServiceQuoteItemsEditor({
       product_name: option.label,
       product_sku: option.sku,
       quantity: productQuantity,
-      unit_price: option.price ?? "0",
+      unit_price: option.price,
       iva_rate: option.ivaRate,
     });
     setProductVariantId("");
@@ -172,7 +182,7 @@ export function ServiceQuoteItemsEditor({
       supply_name: option.label,
       supply_sku: option.sku,
       quantity,
-      unit_price: option.price ?? "0",
+      unit_price: option.price,
       iva_rate: option.ivaRate,
     });
     setSupplyVariantId("");
@@ -355,10 +365,10 @@ export function ServiceQuoteItemsEditor({
                       {item.quantity.toLocaleString("es-AR")}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-                      {money(parseFloat(item.unit_price))}
+                      {formatMoney(item.unit_price, currency)}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums font-medium text-zinc-900 dark:text-white">
-                      {money(parseFloat(item.unit_price) * item.quantity)}
+                      {formatMoney(parseFloat(item.unit_price) * item.quantity, currency)}
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -523,12 +533,12 @@ export function ServiceQuoteItemsEditor({
       <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5">
         <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
           <span>Precio sin impuestos</span>
-          <span className="tabular-nums">{money(subtotal)}</span>
+          <span className="tabular-nums">{formatMoney(subtotal, currency)}</span>
         </div>
         {contemplaIva && (
           <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
             <span>IVA</span>
-            <span className="tabular-nums">{money(ivaAmount)}</span>
+            <span className="tabular-nums">{formatMoney(ivaAmount, currency)}</span>
           </div>
         )}
         <div className="flex items-center justify-between text-base font-semibold text-zinc-900 dark:text-white pt-1.5">
@@ -538,7 +548,7 @@ export function ServiceQuoteItemsEditor({
               <span className="ml-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">(sin IVA)</span>
             )}
           </span>
-          <span className="tabular-nums">{money(total)}</span>
+          <span className="tabular-nums">{formatMoney(total, currency)}</span>
         </div>
       </div>
     </div>

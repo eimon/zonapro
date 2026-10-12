@@ -116,13 +116,14 @@ class ProductVariantRepository(BaseRepository[ProductVariant]):
     def __init__(self, db: AsyncSession):
         super().__init__(ProductVariant, db)
 
-    async def create(self, product_id: uuid.UUID, data, price) -> ProductVariant:
+    async def create(self, product_id: uuid.UUID, data, price_ars, price_usd) -> ProductVariant:
         obj = ProductVariant(
             product_id=product_id,
             sku=data.sku,
             name=data.name,
             attributes=data.attributes,
-            price=price,
+            price_ars=price_ars,
+            price_usd=price_usd,
             stock_qty=data.stock_qty,
         )
         self.db.add(obj)

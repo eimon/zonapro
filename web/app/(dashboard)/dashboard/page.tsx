@@ -25,6 +25,7 @@ import {
 import { api, type DashboardStats } from "@/lib/api";
 import { getRole, getToken, subscribeAuth } from "@/lib/auth";
 import { getThemeServerSnapshot, getThemeSnapshot, subscribeTheme } from "@/lib/theme-store";
+import { formatMoney } from "@/lib/format";
 
 // Categorical palette anchored to the brand accent (#326fc8 — see
 // api/core/branding.py's ACCENT_COLOR and Tailwind's `brand-blue`), validated
@@ -70,10 +71,6 @@ const STATUS_LABELS: Record<string, string> = {
 function formatShortDate(iso: string) {
   const d = new Date(`${iso}T00:00:00`);
   return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
-}
-
-function formatMoney(value: string | number) {
-  return `$${Number(value).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`;
 }
 
 // ── Small building blocks ────────────────────────────────────────────────────
@@ -235,14 +232,16 @@ export default function DashboardPage() {
       {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
       {/* Stat tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         {loading || !stats ? (
-          Array.from({ length: 5 }).map((_, i) => <TileSkeleton key={i} />)
+          Array.from({ length: 6 }).map((_, i) => <TileSkeleton key={i} />)
         ) : (
           <>
             <StatTile icon={Package} label="Productos activos" value={stats.active_products} />
             <StatTile icon={Boxes} label="Insumos activos" value={stats.active_supplies} />
-            <StatTile icon={Wallet} label="Valor cotiz. aprobadas" value={formatMoney(stats.approved_quotes_value)} />
+            {/* Never summed across currencies — one tile per currency. */}
+            <StatTile icon={Wallet} label="Cotiz. aprobadas (ARS)" value={formatMoney(stats.approved_quotes_value.ARS, "ARS")} />
+            <StatTile icon={Wallet} label="Cotiz. aprobadas (USD)" value={formatMoney(stats.approved_quotes_value.USD, "USD")} />
             <StatTile icon={CheckCircle2} label="Cotiz. aprobadas" value={stats.approved_quotes_count} />
             <StatTile icon={MessageSquare} label="Consultas pendientes" value={stats.pending_consultations} />
           </>

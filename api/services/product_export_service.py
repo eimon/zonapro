@@ -6,7 +6,9 @@ from repositories.product_repository import ProductRepository
 from services.product_csv import serialize_row, write_csv
 
 
-def _compute_final_price(price: Decimal, iva_rate: IvaRate) -> Decimal:
+def _compute_final_price(price: Decimal | None, iva_rate: IvaRate) -> Decimal | None:
+    if price is None:
+        return None
     rate = Decimal(iva_rate.value)
     return (price * (1 + rate / Decimal("100"))).quantize(Decimal("0.01"))
 
@@ -31,7 +33,8 @@ class ProductExportService:
             for variant in product.variants:
                 if variant.deleted_at is not None:
                     continue  # the relationship has no deleted_at filter — skip soft-deleted variants
-                final_price = _compute_final_price(variant.price, product.iva_rate)
-                rows.append(serialize_row(product, variant, final_price))
+                final_price_ars = _compute_final_price(variant.price_ars, product.iva_rate)
+                final_price_usd = _compute_final_price(variant.price_usd, product.iva_rate)
+                rows.append(serialize_row(product, variant, final_price_ars, final_price_usd))
 
         return write_csv(rows, delimiter=delimiter)

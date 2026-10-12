@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import type { CatalogFacets, CatalogSort } from "@/lib/api";
 import { activeFilterCount, buildStoreQuery, toggleValue, type StoreFilters } from "@/lib/store-filters";
+import { CurrencyToggle } from "@/components/store/currency-toggle";
 
 const SORT_LABELS: Record<CatalogSort, string> = {
   featured: "Destacados",
@@ -289,33 +290,36 @@ export function StoreShell({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Search + sort row */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
-        <label className="relative flex items-center">
-          <span className="sr-only">Buscar productos</span>
-          <Search className="absolute left-3.5 w-4 h-4 text-zinc-400 pointer-events-none" />
-          <input
-            type="search"
-            placeholder="Buscar por nombre"
-            value={qDraft}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full sm:w-[280px] h-11 pl-10 pr-3.5 rounded-[10px] border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400"
-          />
-        </label>
-        <label className="hidden sm:flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-          Ordenar
-          <select
-            value={filters.sort}
-            onChange={(e) => go({ sort: e.target.value as CatalogSort })}
-            className="h-11 px-3 rounded-[10px] border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-zinc-900 dark:text-white"
-          >
-            {Object.entries(SORT_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+      {/* Currency + search + sort row */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <CurrencyToggle currency={filters.currency} />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <label className="relative flex items-center">
+            <span className="sr-only">Buscar productos</span>
+            <Search className="absolute left-3.5 w-4 h-4 text-zinc-400 pointer-events-none" />
+            <input
+              type="search"
+              placeholder="Buscar por nombre"
+              value={qDraft}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full sm:w-[280px] h-11 pl-10 pr-3.5 rounded-[10px] border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400"
+            />
+          </label>
+          <label className="hidden sm:flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+            Ordenar
+            <select
+              value={filters.sort}
+              onChange={(e) => go({ sort: e.target.value as CatalogSort })}
+              className="h-11 px-3 rounded-[10px] border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-zinc-900 dark:text-white"
+            >
+              {Object.entries(SORT_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       {/* Mobile filter/sort bar */}

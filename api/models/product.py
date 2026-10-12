@@ -35,13 +35,22 @@ class ProductVariant(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
     sku = Column(String(80), nullable=False)
     name = Column(String(200), nullable=False)
     attributes = Column(JSONB, nullable=True, default=dict)
-    price = Column(Numeric(12, 2), nullable=False)
+    # Prices are NET (no IVA), manually edited, never auto-converted between
+    # currencies (D: USD/ARS are two independent, admin-entered values). At
+    # least one of the two must be set — see ck_variant_price_at_least_one.
+    price_usd = Column(Numeric(12, 2), nullable=True)
+    price_ars = Column(Numeric(12, 2), nullable=True)
     stock_qty = Column(Integer, nullable=False, default=0)
 
     product = relationship("Product", back_populates="variants")
 
     __table_args__ = (
-        CheckConstraint("price >= 0", name="ck_variant_price_non_negative"),
+        CheckConstraint("price_usd >= 0", name="ck_variant_price_usd_non_negative"),
+        CheckConstraint("price_ars >= 0", name="ck_variant_price_ars_non_negative"),
+        CheckConstraint(
+            "price_usd IS NOT NULL OR price_ars IS NOT NULL",
+            name="ck_variant_price_at_least_one",
+        ),
         CheckConstraint("stock_qty >= 0", name="ck_variant_stock_non_negative"),
         UniqueConstraint("product_id", "sku", name="uq_variant_product_sku"),
         Index("uq_variant_sku_active", "sku", unique=True, postgresql_where=text("deleted_at IS NULL")),

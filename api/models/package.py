@@ -13,11 +13,22 @@ class Package(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
     name = Column(String(200), nullable=False)
     slug = Column(String(220), nullable=False, unique=True, index=True)
     description = Column(Text, nullable=True)
-    # Admin picks one of these two and the other is always derived at read
-    # time from live catalog prices (see core/package_pricing.py) — the
-    # chosen mode+value stays fixed even as catalog prices change.
+    # Admin picks pricing_mode once; the fields actually used depend on it —
+    # the other set stays NULL, enforced by ck_package_pricing_mode_matches_values:
+    #   - discount_percent mode: `discount_percent` holds the percent (0-100).
+    #     A discount is currency-independent, so ONE value covers both
+    #     currencies — final_price per currency is always derived at read
+    #     time from live catalog prices in that currency (core/package_pricing.py).
+    #   - final_price mode: `pricing_value_ars` / `pricing_value_usd` each
+    #     hold a manually-entered NET final price for that currency. Either
+    #     may be left NULL (package unavailable in that currency) but at
+    #     least one must be set.
+    # In both modes the chosen mode+value(s) stay fixed even as catalog
+    # prices change — only the derived numbers move.
     pricing_mode = Column(SAEnum(PackagePricingMode), nullable=False)
-    pricing_value = Column(Numeric(12, 2), nullable=False)
+    discount_percent = Column(Numeric(5, 2), nullable=True)
+    pricing_value_ars = Column(Numeric(12, 2), nullable=True)
+    pricing_value_usd = Column(Numeric(12, 2), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
 
     items = relationship(
@@ -28,7 +39,17 @@ class Package(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
     )
 
     __table_args__ = (
-        CheckConstraint("pricing_value > 0", name="ck_package_pricing_value_positive"),
+        CheckConstraint(
+            "(pricing_mode = 'discount_percent' AND discount_percent IS NOT NULL "
+            "AND discount_percent > 0 AND discount_percent < 100 "
+            "AND pricing_value_ars IS NULL AND pricing_value_usd IS NULL) "
+            "OR "
+            "(pricing_mode = 'final_price' AND discount_percent IS NULL "
+            "AND (pricing_value_ars IS NOT NULL OR pricing_value_usd IS NOT NULL) "
+            "AND (pricing_value_ars IS NULL OR pricing_value_ars > 0) "
+            "AND (pricing_value_usd IS NULL OR pricing_value_usd > 0))",
+            name="ck_package_pricing_mode_matches_values",
+        ),
     )
 
 

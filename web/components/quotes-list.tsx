@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Pencil, Search } from "lucide-react";
 import { api, Quote, QuoteStatus, QuoteType } from "@/lib/api";
+import { formatMoney } from "@/lib/format";
 import { getToken } from "@/lib/auth";
 
 // Pure move (D18): identical body previously living in
@@ -175,7 +176,7 @@ function QuoteCard({
           )}
         </div>
         <p className="text-base font-semibold text-zinc-900 dark:text-white tabular-nums">
-          ${Number(quote.total).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+          {formatMoney(quote.total, quote.currency)}
         </p>
       </div>
 
@@ -338,6 +339,9 @@ export function QuotesList({ quoteType, title, newHref, newLabel, editHrefBase }
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     Fecha
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    Moneda
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     Total
                   </th>
@@ -374,8 +378,9 @@ export function QuotesList({ quoteType, title, newHref, newLabel, editHrefBase }
                         </div>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">{quote.currency}</td>
                     <td className="px-4 py-3 text-right text-sm font-semibold text-zinc-900 dark:text-white">
-                      ${Number(quote.total).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                      {formatMoney(quote.total, quote.currency)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex items-center gap-2">

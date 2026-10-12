@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Package } from "lucide-react";
-import type { CatalogProductItem } from "@/lib/api";
+import type { CatalogProductItem, Currency } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
 
 const AVAILABILITY_DOT: Record<string, string> = {
@@ -15,10 +15,10 @@ const AVAILABILITY_LABEL: Record<string, string> = {
   out_of_stock: "Sin stock",
 };
 
-export function ProductCard({ item }: { item: CatalogProductItem }) {
+export function ProductCard({ item, currency }: { item: CatalogProductItem; currency: Currency }) {
   return (
     <Link
-      href={`/productos/${item.id}`}
+      href={`/productos/${item.id}?currency=${currency}`}
       className="group flex flex-col h-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-[0_6px_20px_-8px_rgba(24,24,27,0.18)] dark:hover:shadow-none rounded-2xl overflow-hidden transition-[border-color,box-shadow] duration-150"
     >
       <div className="relative h-[220px] bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
@@ -49,10 +49,10 @@ export function ProductCard({ item }: { item: CatalogProductItem }) {
               {item.has_multiple_prices ? "Desde" : "Precio final"}
             </span>
             <span className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white tabular-nums">
-              {formatMoney(item.from_price)}
+              {formatMoney(item.from_price, currency)}
             </span>
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              Precio sin impuestos: {formatMoney(item.from_price_net)}
+              Precio sin impuestos: {formatMoney(item.from_price_net, currency)}
             </span>
           </div>
           <span className="flex items-center gap-1.5 text-[13px] text-zinc-700 dark:text-zinc-300 whitespace-nowrap">

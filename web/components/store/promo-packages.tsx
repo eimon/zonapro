@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import type { Package } from "@/lib/api";
+import type { Currency, Package } from "@/lib/api";
 import { PackageImageMosaic } from "@/components/package-image-mosaic";
 import { formatMoney, formatQty } from "@/lib/format";
 
@@ -8,8 +8,11 @@ import { formatMoney, formatQty } from "@/lib/format";
 // grid, not the full listing (that's /paquetes).
 const MAX_VISIBLE = 2;
 
-export function PromoPackages({ packages }: { packages: Package[] }) {
-  const visible = packages.slice(0, MAX_VISIBLE);
+export function PromoPackages({ packages, currency }: { packages: Package[]; currency: Currency }) {
+  // The caller is expected to have already filtered to packages available in
+  // `currency` (prices[currency] !== null) — this filter is kept here too as
+  // a defensive no-op so a stray package never crashes the render.
+  const visible = packages.filter((pkg) => pkg.prices[currency] !== null).slice(0, MAX_VISIBLE);
   if (visible.length === 0) return null;
 
   return (
@@ -28,14 +31,16 @@ export function PromoPackages({ packages }: { packages: Package[] }) {
       </div>
       <div className="flex flex-col gap-4">
         {visible.map((pkg) => {
-          const discount = parseFloat(pkg.discount_percent);
-          const savings = parseFloat(pkg.list_price) - parseFloat(pkg.final_price);
+          const priceInfo = pkg.prices[currency];
+          if (!priceInfo) return null;
+          const discount = parseFloat(priceInfo.discount_percent);
+          const savings = parseFloat(priceInfo.list_price) - parseFloat(priceInfo.final_price);
           const itemsSummary = pkg.items.map((i) => `${formatQty(i.quantity)} × ${i.name}`).join(" · ");
 
           return (
             <Link
               key={pkg.id}
-              href={`/paquetes/${pkg.id}`}
+              href={`/paquetes/${pkg.id}?currency=${currency}`}
               className="group flex flex-col sm:flex-row bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 rounded-2xl overflow-hidden transition-colors duration-150"
             >
               <div className="relative w-full sm:w-[280px] h-[160px] sm:h-[188px] shrink-0">
@@ -52,16 +57,16 @@ export function PromoPackages({ packages }: { packages: Package[] }) {
                   <p className="text-sm text-zinc-600 dark:text-zinc-400 line-clamp-1">{itemsSummary}</p>
                 </div>
                 <div className="flex flex-col items-start sm:items-end justify-end gap-0.5 shrink-0">
-                  <span className="text-sm text-zinc-500 dark:text-zinc-500 line-through">{formatMoney(pkg.list_price)}</span>
+                  <span className="text-sm text-zinc-500 dark:text-zinc-500 line-through">{formatMoney(priceInfo.list_price, currency)}</span>
                   <span className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white tabular-nums">
-                    {formatMoney(pkg.final_price)}
+                    {formatMoney(priceInfo.final_price, currency)}
                   </span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Precio sin impuestos: {formatMoney(pkg.final_price_net)}
+                    Precio sin impuestos: {formatMoney(priceInfo.final_price_net, currency)}
                   </span>
                   {savings > 0 && (
                     <span className="text-[13px] font-medium text-orange-700 dark:text-orange-400">
-                      Ahorrás {formatMoney(String(savings))}
+                      Ahorrás {formatMoney(String(savings), currency)}
                     </span>
                   )}
                 </div>

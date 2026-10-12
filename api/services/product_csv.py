@@ -10,6 +10,13 @@ attributes/iva_rate, decode_and_read, _csv_safe, write_csv) live in
 `csv_common.py` and are re-exported here unchanged so existing imports
 (`from services.product_csv import RowError, decode_and_read, ...`) keep
 working — this file only owns the product-specific column contract.
+
+Pricing columns: `price_ars` and `price_usd` are the current contract — a
+variant needs at least one. The legacy single `price` column is still
+recognized on IMPORT ONLY, as an alias for `price_usd` (matching the D
+decision that every historical price is a USD amount) — it's ignored
+whenever `price_usd` is also present in the same file. Export never emits
+`price` anymore.
 """
 import json
 
@@ -38,10 +45,13 @@ COLUMNS = (
     "sku",
     "variant_name",
     "attributes",
-    "price",
+    "price_ars",
+    "price_usd",
+    "price",  # legacy alias for price_usd — import-only, see module docstring
     "price_input_mode",
     "stock_qty",
-    "final_price",
+    "final_price_ars",
+    "final_price_usd",
 )
 
 PRODUCT_COLUMNS = {
@@ -58,17 +68,20 @@ VARIANT_COLUMNS = {
     "sku",
     "variant_name",
     "attributes",
+    "price_ars",
+    "price_usd",
     "price",
     "price_input_mode",
     "stock_qty",
 }
-REQUIRED_NON_EMPTY = {"name", "slug", "sku", "variant_name", "price"}
+REQUIRED_NON_EMPTY = {"name", "slug", "sku", "variant_name"}
 CREATE_ONLY_REQUIRED = {"iva_rate"}
 
 # Columns that clear the field to NULL when the cell is present but empty.
 _NULLABLE_COLUMNS = {"description", "image_url", "category_slug"}
-# NOT-NULL-with-default columns: an empty cell leaves the field untouched.
-_SKIP_ON_EMPTY_COLUMNS = {"made_to_order", "is_active", "stock_qty", "iva_rate"}
+# NOT-NULL-with-default (or optional) columns: an empty cell leaves the field
+# untouched (create: simply omitted; update: unchanged).
+_SKIP_ON_EMPTY_COLUMNS = {"made_to_order", "is_active", "stock_qty", "iva_rate", "price_ars", "price_usd", "price"}
 
 _PRODUCT_FIELD_NAME = {
     "name": "name",
@@ -84,7 +97,9 @@ _VARIANT_FIELD_NAME = {
     "sku": "sku",
     "variant_name": "name",
     "attributes": "attributes",
-    "price": "price",
+    "price_ars": "price_ars",
+    "price_usd": "price_usd",
+    "price": "price_usd",  # legacy alias
     "price_input_mode": "price_input_mode",
     "stock_qty": "stock_qty",
 }
@@ -97,8 +112,8 @@ def decode_and_read(raw: bytes) -> tuple:
 def map_row(row: dict, present: set[str]) -> tuple[dict, dict]:
     """Map one CSV row into (product_fields, variant_fields) using the
     file-level partial-column contract (D8): a column absent from `present`
-    is never touched; a required column with an empty cell raises; a
-    nullable column with an empty cell clears to None; a NOT-NULL-with-default
+    is never touched; a required column with an empty cell raises; a nullable
+    column with an empty cell clears to None; a NOT-NULL-with-default
     column with an empty cell is simply omitted (left unchanged)."""
     product_fields: dict = {}
     variant_fields: dict = {}
@@ -106,6 +121,11 @@ def map_row(row: dict, present: set[str]) -> tuple[dict, dict]:
     for col in present:
         if col not in PRODUCT_COLUMNS and col not in VARIANT_COLUMNS:
             continue  # resolution-only columns (product_id, variant_id) — read directly by the caller
+
+        # Legacy 'price' alias — ignored whenever the current 'price_usd'
+        # column is also present in this file.
+        if col == "price" and "price_usd" in present:
+            continue
 
         raw = (row.get(col) or "").strip()
         is_product = col in PRODUCT_COLUMNS
@@ -142,7 +162,7 @@ def map_row(row: dict, present: set[str]) -> tuple[dict, dict]:
                 target[field_name] = int(raw)
             except ValueError:
                 raise RowError(f"stock_qty inválido: '{raw}'")
-        elif col == "price":
+        elif col in ("price_ars", "price_usd", "price"):
             target[field_name] = parse_decimal(raw)
         else:
             target[field_name] = raw
@@ -150,7 +170,7 @@ def map_row(row: dict, present: set[str]) -> tuple[dict, dict]:
     return product_fields, variant_fields
 
 
-def serialize_row(product, variant, final_price) -> list[str]:
+def serialize_row(product, variant, final_price_ars, final_price_usd) -> list[str]:
     """Serialize one (product, variant) pair into an export row, in COLUMNS order."""
     attrs = variant.attributes or {}
     category = getattr(product, "category", None)
@@ -168,10 +188,13 @@ def serialize_row(product, variant, final_price) -> list[str]:
         variant.sku,
         variant.name,
         json.dumps(attrs, ensure_ascii=False, sort_keys=True),
-        str(variant.price),
+        str(variant.price_ars) if variant.price_ars is not None else "",
+        str(variant.price_usd) if variant.price_usd is not None else "",
+        "",  # legacy 'price' column — export-blank, import-only alias
         "",  # price_input_mode is import-only
         str(variant.stock_qty),
-        str(final_price),
+        str(final_price_ars) if final_price_ars is not None else "",
+        str(final_price_usd) if final_price_usd is not None else "",
     ]
 
 

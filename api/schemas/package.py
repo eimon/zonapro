@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from typing import Optional
 from pydantic import BaseModel, Field, model_validator
-from models.enums import PackagePricingMode, PackageItemKind, IvaRate
+from models.enums import PackagePricingMode, PackageItemKind, IvaRate, Currency
 
 
 class PackageItemCreate(BaseModel):
@@ -42,16 +42,20 @@ class PackageItemResponse(BaseModel):
     # gross previews client-side without re-deriving it from unit_price/
     # unit_price_net.
     iva_rate: IvaRate
-    # IVA-inclusive (gross) — the customer-facing unit price/subtotal.
-    unit_price: Decimal
-    # NET (no IVA) — the stored/pricing basis, shown as the muted "sin
-    # impuestos" detail.
-    unit_price_net: Decimal
+    # Per-currency unit/line prices — IVA-inclusive (gross) and NET, mirroring
+    # ProductVariantResponse.final_price_ars/usd. None when the item's variant
+    # has no price in that currency.
+    unit_price_ars: Optional[Decimal] = None
+    unit_price_net_ars: Optional[Decimal] = None
+    line_total_ars: Optional[Decimal] = None
+    line_total_net_ars: Optional[Decimal] = None
+    unit_price_usd: Optional[Decimal] = None
+    unit_price_net_usd: Optional[Decimal] = None
+    line_total_usd: Optional[Decimal] = None
+    line_total_net_usd: Optional[Decimal] = None
     # float, not Decimal — mirrors QuoteItemResponse.quantity: Pydantic
     # serializes Decimal as a JSON string, and the web consumes it as a number.
     quantity: float
-    line_total: Decimal
-    line_total_net: Decimal
     # The parent product's/supply's image_url (never the variant's — images
     # live one level up in both catalogs). None when the parent has no image.
     image_url: Optional[str] = None
@@ -66,17 +70,34 @@ class PackageItemResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PackagePriceInfo(BaseModel):
+    """Computed, read-time-only pricing for one currency. Present in
+    PackageResponse.prices[currency] only when the package is available in
+    that currency (every item priced in it, and — for final_price mode — a
+    pricing_value set for it)."""
+
+    list_price: Decimal
+    list_price_net: Decimal
+    final_price: Decimal
+    final_price_net: Decimal
+    discount_percent: Decimal
+
+
 class PackageCreate(BaseModel):
     name: str
     slug: str
     description: Optional[str] = None
     is_active: bool = True
     pricing_mode: PackagePricingMode
-    # Bounds (>0, and <100 for discount_percent / <list_price for
-    # final_price) are enforced service-side with Spanish messages — see
-    # PackageService._validate_pricing — rather than via Field() here, since
-    # the upper bound always depends on live catalog data anyway.
-    pricing_value: Decimal
+    # Exactly one pricing shape applies, matching pricing_mode — validated
+    # service-side (bounds always depend on live catalog data):
+    #   - discount_percent mode: `discount_percent` only (0-100, exclusive),
+    #     applies to both currencies alike.
+    #   - final_price mode: `pricing_value_ars` and/or `pricing_value_usd` —
+    #     at least one, each < that currency's list price.
+    discount_percent: Optional[Decimal] = None
+    pricing_value_ars: Optional[Decimal] = None
+    pricing_value_usd: Optional[Decimal] = None
     items: list[PackageItemCreate] = Field(min_length=1)
 
 
@@ -86,7 +107,9 @@ class PackageUpdate(BaseModel):
     description: Optional[str] = None
     is_active: Optional[bool] = None
     pricing_mode: Optional[PackagePricingMode] = None
-    pricing_value: Optional[Decimal] = None
+    discount_percent: Optional[Decimal] = None
+    pricing_value_ars: Optional[Decimal] = None
+    pricing_value_usd: Optional[Decimal] = None
     # When provided, replaces the package's items wholesale (delete-all +
     # re-create). When absent, existing items are left untouched.
     items: Optional[list[PackageItemCreate]] = None
@@ -99,21 +122,17 @@ class PackageResponse(BaseModel):
     description: Optional[str]
     is_active: bool
     pricing_mode: PackagePricingMode
-    pricing_value: Decimal
-    # Computed at read time from live catalog prices — never stored.
-    # IVA-inclusive (gross) — the customer-facing prices shown as the main
-    # price everywhere in the storefront and dashboard.
-    list_price: Decimal
-    final_price: Decimal
-    # NET (no IVA) — the stored/pricing basis. pricing_value/pricing_mode and
-    # the >list_price / <100% validation rules always work in these terms.
-    # final_price_net is also what's shown as the muted "sin impuestos" detail.
-    list_price_net: Decimal
-    final_price_net: Decimal
-    discount_percent: Decimal
-    # All items' variants (and their parent product/supply) are active and
-    # not soft-deleted. A package with a discontinued item is unavailable
-    # even if is_active is still true.
+    discount_percent: Optional[Decimal]
+    pricing_value_ars: Optional[Decimal]
+    pricing_value_usd: Optional[Decimal]
+    # Computed at read time from live catalog prices — never stored. Keyed by
+    # Currency ("ARS"/"USD"); a currency the package isn't available in maps
+    # to None instead of being omitted, so the web can always do
+    # `pkg.prices[currency]` without a membership check.
+    prices: dict[Currency, Optional[PackagePriceInfo]]
+    # True when available in at least one currency — items exist, every item's
+    # variant/parent is active and not soft-deleted, matching prices[*] not
+    # all being None.
     is_available: bool
     items: list[PackageItemResponse]
 

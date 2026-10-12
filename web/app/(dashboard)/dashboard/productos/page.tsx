@@ -7,16 +7,38 @@ import Image from "next/image";
 import Link from "next/link";
 import { Package, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { ProductCsvPanel } from "@/components/product-csv-panel";
+import { formatMoney } from "@/lib/format";
 
 function totalStock(p: Product) {
   return p.variants.reduce((sum, v) => sum + v.stock_qty, 0);
 }
 
-function lowestPrice(p: Product): number | null {
-  const prices = p.variants
-    .map((v) => parseFloat(v.price))
-    .filter((price) => !Number.isNaN(price));
-  return prices.length ? Math.min(...prices) : null;
+function lowestPrices(p: Product): { ars: number | null; usd: number | null } {
+  const arsPrices = p.variants.map((v) => (v.price_ars ? parseFloat(v.price_ars) : null)).filter((v): v is number => v !== null);
+  const usdPrices = p.variants.map((v) => (v.price_usd ? parseFloat(v.price_usd) : null)).filter((v): v is number => v !== null);
+  return {
+    ars: arsPrices.length ? Math.min(...arsPrices) : null,
+    usd: usdPrices.length ? Math.min(...usdPrices) : null,
+  };
+}
+
+function PriceCell({ ars, usd }: { ars: number | null; usd: number | null }) {
+  if (ars === null && usd === null) {
+    return <span className="text-zinc-400 dark:text-zinc-500 text-xs">Sin precio</span>;
+  }
+  return (
+    <span className="flex flex-col leading-tight">
+      {ars !== null && <span>{formatMoney(ars, "ARS")}</span>}
+      {usd !== null && <span className={ars !== null ? "text-xs text-zinc-500 dark:text-zinc-400" : ""}>{formatMoney(usd, "USD")}</span>}
+    </span>
+  );
+}
+
+function SingleCurrencyCell({ value, currency }: { value: number | null; currency: "ARS" | "USD" }) {
+  if (value === null) {
+    return <span className="text-zinc-400 dark:text-zinc-600">—</span>;
+  }
+  return <span>{formatMoney(value, currency)}</span>;
 }
 
 function SkeletonRow() {
@@ -31,7 +53,7 @@ function SkeletonRow() {
           </div>
         </div>
       </td>
-      {[...Array(4)].map((_, i) => (
+      {[...Array(5)].map((_, i) => (
         <td key={i} className="px-4 py-4">
           <div className="h-3.5 w-16 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
         </td>
@@ -79,7 +101,7 @@ function ProductCard({
   onDelete: (product: Product) => void;
 }) {
   const stock = totalStock(product);
-  const price = lowestPrice(product);
+  const price = lowestPrices(product);
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
       <div className="flex items-start gap-3">
@@ -136,10 +158,8 @@ function ProductCard({
           <p className="font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">
             {product.made_to_order ? (
               <span className="text-zinc-400 dark:text-zinc-600 font-normal">—</span>
-            ) : price !== null ? (
-              `$${price.toLocaleString("es-AR")}`
             ) : (
-              <span className="text-zinc-400 dark:text-zinc-500 font-normal">Sin precio</span>
+              <PriceCell ars={price.ars} usd={price.usd} />
             )}
           </p>
         </div>
@@ -300,7 +320,7 @@ export default function ProductosPage() {
 
       {/* Table (desktop) */}
       <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-x-auto shadow-sm">
-        <table className="w-full text-sm min-w-[640px]">
+        <table className="w-full text-sm min-w-[760px]">
           <thead>
             <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40">
               <th className="text-left px-6 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
@@ -313,7 +333,10 @@ export default function ProductosPage() {
                 Stock
               </th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                Precio desde
+                Desde (ARS)
+              </th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                Desde (USD)
               </th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                 Estado
@@ -330,14 +353,14 @@ export default function ProductosPage() {
               </>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <EmptyState search={search} />
                 </td>
               </tr>
             ) : (
               filtered.map((product) => {
                 const stock = totalStock(product);
-                const price = lowestPrice(product);
+                const price = lowestPrices(product);
                 return (
                   <tr
                     key={product.id}
@@ -387,13 +410,10 @@ export default function ProductosPage() {
                       )}
                     </td>
                     <td className="px-4 py-4 text-zinc-700 dark:text-zinc-300 tabular-nums">
-                      {product.made_to_order ? (
-                        <span className="text-zinc-400 dark:text-zinc-600">—</span>
-                      ) : price !== null ? (
-                        `$${price.toLocaleString("es-AR")}`
-                      ) : (
-                        <span className="text-zinc-400 dark:text-zinc-500 text-xs">Sin precio</span>
-                      )}
+                      <SingleCurrencyCell value={product.made_to_order ? null : price.ars} currency="ARS" />
+                    </td>
+                    <td className="px-4 py-4 text-zinc-700 dark:text-zinc-300 tabular-nums">
+                      <SingleCurrencyCell value={product.made_to_order ? null : price.usd} currency="USD" />
                     </td>
                     <td className="px-4 py-4">
                       <span

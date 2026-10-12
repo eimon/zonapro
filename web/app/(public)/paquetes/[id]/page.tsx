@@ -1,15 +1,19 @@
 import Image from "next/image";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { MessageSquare, Package as PackageIcon, Boxes } from "lucide-react";
-import { api, type PackageItem } from "@/lib/api";
+import { api, type Currency, type PackageItem } from "@/lib/api";
 import { PackageImageMosaic } from "@/components/package-image-mosaic";
+import { CurrencyToggle } from "@/components/store/currency-toggle";
 import { formatMoney, formatQty } from "@/lib/format";
+import { resolveStoreCurrency } from "@/lib/store-filters";
 
 export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 const KIND_LABEL: Record<PackageItem["kind"], string> = {
@@ -25,14 +29,49 @@ function splitItemName(name: string): [string, string | null] {
   return [name.slice(0, idx), name.slice(idx + 3)];
 }
 
-export default async function PaqueteDetailPage({ params }: Props) {
+function itemUnitPrice(item: PackageItem, currency: Currency): string | null {
+  return currency === "ARS" ? item.unit_price_ars : item.unit_price_usd;
+}
+
+function itemLineTotal(item: PackageItem, currency: Currency): string | null {
+  return currency === "ARS" ? item.line_total_ars : item.line_total_usd;
+}
+
+const OTHER_CURRENCY: Record<Currency, Currency> = { ARS: "USD", USD: "ARS" };
+
+export default async function PaqueteDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const sp = await searchParams;
+  const cookieStore = await cookies();
+  const currency = resolveStoreCurrency(sp, cookieStore.get("store_currency")?.value);
 
   const pkg = await api.packages.get(id).catch(() => null);
   if (!pkg) notFound();
 
-  const discount = parseFloat(pkg.discount_percent);
-  const savings = parseFloat(pkg.list_price) - parseFloat(pkg.final_price);
+  const priceInfo = pkg.prices[currency];
+
+  if (!priceInfo) {
+    return (
+      <div className="px-6 py-16 lg:px-16">
+        <div className="max-w-[720px] mx-auto flex flex-col items-center gap-4 text-center">
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">{pkg.name}</h1>
+          <p className="text-[15px] text-zinc-600 dark:text-zinc-400">
+            Este paquete no está disponible en {currency === "ARS" ? "pesos" : "dólares"} por el momento.
+          </p>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-zinc-500 dark:text-zinc-400">Mirálo en {OTHER_CURRENCY[currency]}:</span>
+            <CurrencyToggle currency={currency} />
+          </div>
+          <Link href={`/paquetes?currency=${currency}`} className="text-sm font-medium text-brand-blue hover:opacity-80">
+            ← Ver otros paquetes
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const discount = parseFloat(priceInfo.discount_percent);
+  const savings = parseFloat(priceInfo.list_price) - parseFloat(priceInfo.final_price);
 
   return (
     <div className="px-6 py-8 lg:px-16">
@@ -42,11 +81,11 @@ export default async function PaqueteDetailPage({ params }: Props) {
             Inicio
           </Link>
           <span aria-hidden="true">/</span>
-          <Link href="/productos" className="hover:text-zinc-700 dark:hover:text-zinc-200">
+          <Link href={`/productos?currency=${currency}`} className="hover:text-zinc-700 dark:hover:text-zinc-200">
             Tienda
           </Link>
           <span aria-hidden="true">/</span>
-          <Link href="/paquetes" className="hover:text-zinc-700 dark:hover:text-zinc-200">
+          <Link href={`/paquetes?currency=${currency}`} className="hover:text-zinc-700 dark:hover:text-zinc-200">
             Paquetes
           </Link>
           <span aria-hidden="true">/</span>
@@ -128,9 +167,9 @@ export default async function PaqueteDetailPage({ params }: Props) {
                           <td className="px-5 py-3.5 text-right font-mono text-zinc-700 dark:text-zinc-300">
                             {formatQty(item.quantity)}
                           </td>
-                          <td className="px-5 py-3.5 text-right text-zinc-700 dark:text-zinc-300">{formatMoney(item.unit_price)}</td>
+                          <td className="px-5 py-3.5 text-right text-zinc-700 dark:text-zinc-300">{formatMoney(itemUnitPrice(item, currency), currency)}</td>
                           <td className="px-5 py-3.5 text-right font-semibold text-zinc-900 dark:text-white">
-                            {formatMoney(item.line_total)}
+                            {formatMoney(itemLineTotal(item, currency), currency)}
                           </td>
                         </tr>
                       );
@@ -143,10 +182,10 @@ export default async function PaqueteDetailPage({ params }: Props) {
                       </th>
                       <td className="px-5 py-3.5 text-right">
                         <span className="block font-semibold text-zinc-900 dark:text-white">
-                          {formatMoney(pkg.list_price)}
+                          {formatMoney(priceInfo.list_price, currency)}
                         </span>
                         <span className="block text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                          Precio sin impuestos: {formatMoney(pkg.list_price_net)}
+                          Precio sin impuestos: {formatMoney(priceInfo.list_price_net, currency)}
                         </span>
                       </td>
                     </tr>
@@ -170,9 +209,12 @@ export default async function PaqueteDetailPage({ params }: Props) {
             className="w-full lg:w-[400px] shrink-0 lg:sticky lg:top-28 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-7 flex flex-col gap-5"
           >
             <div className="flex flex-col gap-2.5">
-              <span className="self-start text-xs font-semibold text-white bg-orange-700 rounded-full px-2.5 py-1">
-                Paquete promocional
-              </span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold text-white bg-orange-700 rounded-full px-2.5 py-1">
+                  Paquete promocional
+                </span>
+                <CurrencyToggle currency={currency} />
+              </div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight leading-tight text-zinc-900 dark:text-white">
                 {pkg.name}
               </h1>
@@ -181,22 +223,22 @@ export default async function PaqueteDetailPage({ params }: Props) {
             <div className="flex flex-col gap-1.5 py-4.5 border-t border-b border-zinc-200 dark:border-zinc-800">
               <div className="flex justify-between text-sm text-zinc-500 dark:text-zinc-400">
                 <span>Precio de lista</span>
-                <span className="line-through">{formatMoney(pkg.list_price)}</span>
+                <span className="line-through">{formatMoney(priceInfo.list_price, currency)}</span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-sm font-medium text-orange-700 dark:text-orange-400">
                   <span>Descuento {discount.toLocaleString("es-AR", { maximumFractionDigits: 2 })}%</span>
-                  <span>− {formatMoney(String(savings))}</span>
+                  <span>− {formatMoney(String(savings), currency)}</span>
                 </div>
               )}
               <div className="flex justify-between items-baseline pt-2">
                 <span className="text-[15px] font-semibold text-zinc-900 dark:text-white">Precio del paquete</span>
                 <span className="text-[32px] font-bold tracking-tight tabular-nums text-zinc-900 dark:text-white">
-                  {formatMoney(pkg.final_price)}
+                  {formatMoney(priceInfo.final_price, currency)}
                 </span>
               </div>
               <span className="text-xs text-zinc-500 dark:text-zinc-400 text-right">
-                Precio sin impuestos: {formatMoney(pkg.final_price_net)}
+                Precio sin impuestos: {formatMoney(priceInfo.final_price_net, currency)}
               </span>
             </div>
 

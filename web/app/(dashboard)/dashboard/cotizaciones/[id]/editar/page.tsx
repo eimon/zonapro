@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { api, type InstallationCostType, type Product, type Quote, type QuoteItem, type Supply } from "@/lib/api";
+import { api, type Currency, type InstallationCostType, type Product, type Quote, type QuoteItem, type Supply } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { QuoteItemsEditor, type QuoteItemDraft } from "@/components/quote-items-editor";
 import { quoteFormSchema, type QuoteFormValues } from "@/lib/quote-form";
@@ -70,6 +70,7 @@ export default function EditarCotizacionPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [items, setItems] = useState<QuoteItemDraft[]>([]);
+  const [currency, setCurrency] = useState<Currency>("USD");
   const [installationCostType, setInstallationCostType] = useState<InstallationCostType | "">("");
   const [installationCostValue, setInstallationCostValue] = useState("");
   const [loading, setLoading] = useState(true);
@@ -99,6 +100,7 @@ export default function EditarCotizacionPage() {
         setProducts(prods);
         setSupplies(sup);
         setItems(itemsFromQuote(q));
+        setCurrency(q.currency);
         setInstallationCostType(q.installation_cost_type ?? "");
         setInstallationCostValue(q.installation_cost_value ?? "");
         reset({
@@ -117,6 +119,26 @@ export default function EditarCotizacionPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar la cotización"))
       .finally(() => setLoading(false));
   }, [id, router, reset]);
+
+  // Currency must be persisted before any item is added: addItem prices
+  // product/supply lines server-side from the quote's *stored* currency, so a
+  // local-only change would silently price items in the old currency.
+  async function handleCurrencyChange(next: Currency) {
+    if (next === currency || items.length > 0) return;
+    const token = getToken();
+    if (!token) return;
+    setItemBusy(true);
+    setError(null);
+    try {
+      const updated = await api.quotes.update(id, { currency: next }, token);
+      setQuote(updated);
+      setCurrency(updated.currency);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cambiar la moneda");
+    } finally {
+      setItemBusy(false);
+    }
+  }
 
   async function handleAddItem(item: QuoteItemDraft) {
     const token = getToken();
@@ -179,6 +201,7 @@ export default function EditarCotizacionPage() {
         id,
         {
           ...data,
+          currency,
           client_phone: data.client_phone || null,
           notes: data.notes || null,
           cost_notes: data.cost_notes || null,
@@ -232,6 +255,34 @@ export default function EditarCotizacionPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <QuoteClientFields register={register} errors={errors} placeholders={false} />
 
+        {/* Currency — locked once the quote has items, matching the
+            server-side rule (QuoteService.update). */}
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Moneda</label>
+          <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden w-fit">
+            {(["ARS", "USD"] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                disabled={items.length > 0 || itemBusy}
+                onClick={() => handleCurrencyChange(c)}
+                className={`px-4 py-2 text-sm font-medium transition-colors duration-150 ${
+                  currency === c
+                    ? "bg-brand-blue text-white"
+                    : "bg-zinc-50 dark:bg-zinc-950/60 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                } ${items.length > 0 ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          {items.length > 0 && (
+            <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+              La moneda queda fija porque esta cotización ya tiene ítems cargados.
+            </p>
+          )}
+        </div>
+
         {/* Products + supplies + installation cost */}
         <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
           <div className="flex items-center justify-between mb-4">
@@ -249,6 +300,7 @@ export default function EditarCotizacionPage() {
             onInstallationCostTypeChange={setInstallationCostType}
             onInstallationCostValueChange={setInstallationCostValue}
             contemplaIva={contemplaIva ?? true}
+            currency={currency}
           />
         </div>
 

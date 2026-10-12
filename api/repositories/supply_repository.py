@@ -76,13 +76,14 @@ class SupplyVariantRepository(BaseRepository[SupplyVariant]):
     def __init__(self, db: AsyncSession):
         super().__init__(SupplyVariant, db)
 
-    async def create(self, supply_id: uuid.UUID, data, price) -> SupplyVariant:
+    async def create(self, supply_id: uuid.UUID, data, price_ars, price_usd) -> SupplyVariant:
         obj = SupplyVariant(
             supply_id=supply_id,
             sku=data.sku,
             name=data.name,
             attributes=data.attributes,
-            price=price,
+            price_ars=price_ars,
+            price_usd=price_usd,
             stock_qty=data.stock_qty,
         )
         self.db.add(obj)

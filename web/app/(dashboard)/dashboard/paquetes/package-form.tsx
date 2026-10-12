@@ -6,21 +6,41 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
 import type { Product, Supply, PackageInput } from "@/lib/api";
+import { formatMoney } from "@/lib/format";
 import { PackageItemsEditor, type PackageItemDraft } from "@/components/package-items-editor";
 
 // Shared by nuevo/page.tsx and [id]/editar/page.tsx — the pricing toggle +
 // items editor + live preview logic is substantial enough to be worth
 // sharing (unlike the insumos nuevo/editar pages, which stay duplicated
 // because they're mostly plain fields).
+//
+// Pricing shapes (mirrors the API — see api/models/package.py):
+//   - discount_percent mode: ONE percent, applies to both currencies alike.
+//   - final_price mode: up to two independent NET final prices, one per
+//     currency — either may be left empty (package then isn't available in
+//     that currency).
 
-const schema = z.object({
-  name: z.string().min(1, "Nombre requerido"),
-  slug: z.string().min(1, "Slug requerido"),
-  description: z.string().optional(),
-  is_active: z.boolean(),
-  pricing_mode: z.enum(["final_price", "discount_percent"]),
-  pricing_value: z.string().min(1, "Requerido"),
-});
+const schema = z
+  .object({
+    name: z.string().min(1, "Nombre requerido"),
+    slug: z.string().min(1, "Slug requerido"),
+    description: z.string().optional(),
+    is_active: z.boolean(),
+    pricing_mode: z.enum(["final_price", "discount_percent"]),
+    discount_percent: z.string().optional(),
+    pricing_value_ars: z.string().optional(),
+    pricing_value_usd: z.string().optional(),
+  })
+  .refine(
+    (v) =>
+      v.pricing_mode === "discount_percent"
+        ? !!v.discount_percent?.trim()
+        : !!v.pricing_value_ars?.trim() || !!v.pricing_value_usd?.trim(),
+    {
+      message: "Completá el precio promocional",
+      path: ["discount_percent"],
+    }
+  );
 
 type FormData = z.infer<typeof schema>;
 
@@ -32,10 +52,6 @@ function slugify(text: string): string {
     .replace(/[^a-z0-9\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-");
-}
-
-function money(value: number) {
-  return `$${value.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function InputField({
@@ -63,6 +79,71 @@ function InputField({
 
 const inputClass =
   "w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-blue/25 focus:border-brand-blue transition-all duration-150";
+
+// Per-currency NET list/final price preview — client-side only, backend
+// recomputes and validates on save (see PackageService._validate_pricing).
+function computeCurrencyPreview(
+  items: PackageItemDraft[],
+  currency: "ars" | "usd",
+  pricingMode: "final_price" | "discount_percent",
+  discountPercent: number | null,
+  pricingValue: number | null
+) {
+  const field = currency === "ars" ? "unit_price_ars" : "unit_price_usd";
+  const pricedItems = items.filter((it) => it[field] !== null);
+  const allPriced = items.length > 0 && pricedItems.length === items.length;
+  if (!allPriced) return { listPrice: null, finalPrice: null, discountPercent: null };
+
+  const listPrice = items.reduce((sum, it) => sum + parseFloat(it[field] as string) * it.quantity, 0);
+  if (listPrice <= 0) return { listPrice, finalPrice: null, discountPercent: null };
+
+  if (pricingMode === "discount_percent") {
+    if (discountPercent === null) return { listPrice, finalPrice: null, discountPercent: null };
+    return { listPrice, finalPrice: listPrice * (1 - discountPercent / 100), discountPercent };
+  }
+  if (pricingValue === null) return { listPrice, finalPrice: null, discountPercent: null };
+  return { listPrice, finalPrice: pricingValue, discountPercent: (1 - pricingValue / listPrice) * 100 };
+}
+
+function CurrencyPricingPreview({
+  currency,
+  listPrice,
+  finalPrice,
+  discountPercent,
+}: {
+  currency: "ARS" | "USD";
+  listPrice: number | null;
+  finalPrice: number | null;
+  discountPercent: number | null;
+}) {
+  return (
+    <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5 text-sm">
+      <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{currency}</p>
+      {listPrice === null ? (
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+          No disponible — algún ítem no tiene precio en {currency}.
+        </p>
+      ) : (
+        <>
+          <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
+            <span>Precio de lista (sin impuestos)</span>
+            <span className="tabular-nums line-through">{formatMoney(listPrice, currency)}</span>
+          </div>
+          <div className="flex items-center justify-between font-semibold text-zinc-900 dark:text-white">
+            <span>Precio final (sin impuestos)</span>
+            <span className="tabular-nums">{finalPrice !== null ? formatMoney(finalPrice, currency) : "—"}</span>
+          </div>
+          {finalPrice !== null && discountPercent !== null && (
+            <p className="text-xs text-emerald-600 dark:text-emerald-400">
+              Ahorro de {formatMoney(listPrice - finalPrice, currency)} (
+              {discountPercent.toLocaleString("es-AR", { maximumFractionDigits: 2 })}%)
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export function PackageForm({
   mode,
@@ -96,38 +177,25 @@ export function PackageForm({
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues });
 
   const pricingMode = useWatch({ control, name: "pricing_mode" });
-  const pricingValue = useWatch({ control, name: "pricing_value" });
+  const discountPercentValue = useWatch({ control, name: "discount_percent" });
+  const pricingValueArsValue = useWatch({ control, name: "pricing_value_ars" });
+  const pricingValueUsdValue = useWatch({ control, name: "pricing_value_usd" });
 
-  // NET — the stored/pricing basis. pricing_value/pricing_mode always work
-  // in these terms, matching the backend (core/package_pricing.py).
-  const listPrice = items.reduce((sum, item) => sum + parseFloat(item.unit_price) * item.quantity, 0);
-  // IVA-inclusive (gross) — each item's own IVA rate applied, then summed.
-  // Used only to preview the customer-facing price; never sent to the API.
-  const listPriceGross = items.reduce((sum, item) => {
-    const rate = parseFloat(item.iva_rate) || 0;
-    const grossUnit = parseFloat(item.unit_price) * (1 + rate / 100);
-    return sum + grossUnit * item.quantity;
-  }, 0);
-  const parsedPricingValue = parseFloat((pricingValue ?? "").replace(",", "."));
-  const hasValidPricingValue = !Number.isNaN(parsedPricingValue) && parsedPricingValue > 0;
+  const parsedDiscountPercent = (() => {
+    const n = parseFloat((discountPercentValue ?? "").replace(",", "."));
+    return Number.isNaN(n) || n <= 0 ? null : n;
+  })();
+  const parsedPricingValueArs = (() => {
+    const n = parseFloat((pricingValueArsValue ?? "").replace(",", "."));
+    return Number.isNaN(n) || n <= 0 ? null : n;
+  })();
+  const parsedPricingValueUsd = (() => {
+    const n = parseFloat((pricingValueUsdValue ?? "").replace(",", "."));
+    return Number.isNaN(n) || n <= 0 ? null : n;
+  })();
 
-  let computedFinalPrice: number | null = null;
-  let computedDiscountPercent: number | null = null;
-  if (listPrice > 0 && hasValidPricingValue) {
-    if (pricingMode === "final_price") {
-      computedFinalPrice = parsedPricingValue;
-      computedDiscountPercent = (1 - parsedPricingValue / listPrice) * 100;
-    } else {
-      computedDiscountPercent = parsedPricingValue;
-      computedFinalPrice = listPrice * (1 - parsedPricingValue / 100);
-    }
-  }
-  // Same discount factor (final_price / list_price) applied to the gross
-  // list price — mirrors core/package_pricing.py::compute_final_price_gross,
-  // so mixed IVA rates (21% + 10.5%) are handled proportionally, not by
-  // re-adding a single flat rate.
-  const computedFinalPriceGross =
-    computedFinalPrice !== null && listPrice > 0 ? (computedFinalPrice * listPriceGross) / listPrice : null;
+  const previewArs = computeCurrencyPreview(items, "ars", pricingMode, parsedDiscountPercent, parsedPricingValueArs);
+  const previewUsd = computeCurrencyPreview(items, "usd", pricingMode, parsedDiscountPercent, parsedPricingValueUsd);
 
   const handleAddItem = (item: PackageItemDraft) => {
     setItemsError(null);
@@ -149,14 +217,26 @@ export function PackageForm({
       return;
     }
 
-    const pricingValueNumber = parseFloat(data.pricing_value.replace(",", "."));
-    if (Number.isNaN(pricingValueNumber) || pricingValueNumber <= 0) {
-      setItemsError(
-        data.pricing_mode === "discount_percent"
-          ? "El porcentaje de descuento debe ser mayor a 0."
-          : "El precio final debe ser mayor a 0."
-      );
-      return;
+    let discount_percent: number | null = null;
+    let pricing_value_ars: number | null = null;
+    let pricing_value_usd: number | null = null;
+
+    if (data.pricing_mode === "discount_percent") {
+      const n = parseFloat((data.discount_percent ?? "").replace(",", "."));
+      if (Number.isNaN(n) || n <= 0 || n >= 100) {
+        setItemsError("El porcentaje de descuento debe ser mayor a 0 y menor a 100.");
+        return;
+      }
+      discount_percent = n;
+    } else {
+      const ars = data.pricing_value_ars ? parseFloat(data.pricing_value_ars.replace(",", ".")) : null;
+      const usd = data.pricing_value_usd ? parseFloat(data.pricing_value_usd.replace(",", ".")) : null;
+      if ((ars === null || Number.isNaN(ars) || ars <= 0) && (usd === null || Number.isNaN(usd) || usd <= 0)) {
+        setItemsError("Ingresá un precio final mayor a 0 para al menos una moneda.");
+        return;
+      }
+      pricing_value_ars = ars !== null && !Number.isNaN(ars) && ars > 0 ? ars : null;
+      pricing_value_usd = usd !== null && !Number.isNaN(usd) && usd > 0 ? usd : null;
     }
 
     const payload: PackageInput = {
@@ -165,7 +245,9 @@ export function PackageForm({
       description: data.description || null,
       is_active: data.is_active,
       pricing_mode: data.pricing_mode,
-      pricing_value: pricingValueNumber,
+      discount_percent,
+      pricing_value_ars,
+      pricing_value_usd,
       items: items.map((item, index) => ({
         kind: item.kind,
         display_order: index,
@@ -269,56 +351,55 @@ export function PackageForm({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <InputField
-            label={pricingMode === "final_price" ? "Precio final sin impuestos (ARS)" : "Descuento (%)"}
-            required
-            error={errors.pricing_value?.message}
-          >
+        {pricingMode === "discount_percent" ? (
+          <InputField label="Descuento (%) — aplica por igual en ARS y USD" required error={errors.discount_percent?.message}>
             <input
               type="number"
               min="0"
+              max="100"
               step="0.01"
-              placeholder={pricingMode === "final_price" ? "0.00" : "0"}
-              className={inputClass}
-              {...register("pricing_value")}
+              placeholder="0"
+              className={`${inputClass} sm:w-1/2`}
+              {...register("discount_percent")}
             />
           </InputField>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <InputField label="Precio final ARS (neto)" error={errors.discount_percent?.message}>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Dejar vacío = no disponible en ARS"
+                className={inputClass}
+                {...register("pricing_value_ars")}
+              />
+            </InputField>
+            <InputField label="Precio final USD (neto)">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Dejar vacío = no disponible en USD"
+                className={inputClass}
+                {...register("pricing_value_usd")}
+              />
+            </InputField>
+          </div>
+        )}
 
-          <InputField
-            label={pricingMode === "final_price" ? "Descuento resultante" : "Precio final sin impuestos resultante"}
-          >
-            <div className={`${inputClass} bg-zinc-100 dark:bg-zinc-900 cursor-default flex items-center`}>
-              {pricingMode === "final_price"
-                ? computedDiscountPercent !== null
-                  ? `${computedDiscountPercent.toLocaleString("es-AR", { maximumFractionDigits: 2 })}%`
-                  : "—"
-                : computedFinalPrice !== null
-                ? money(computedFinalPrice)
-                : "—"}
-            </div>
-          </InputField>
-        </div>
-
-        <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5 text-sm">
-          <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
-            <span>Precio de lista (sin impuestos)</span>
-            <span className="tabular-nums line-through">{money(listPrice)}</span>
-          </div>
-          <div className="flex items-center justify-between font-semibold text-zinc-900 dark:text-white">
-            <span>Precio final (sin impuestos)</span>
-            <span className="tabular-nums">{computedFinalPrice !== null ? money(computedFinalPrice) : "—"}</span>
-          </div>
-          {computedFinalPrice !== null && listPrice > 0 && (
-            <p className="text-xs text-emerald-600 dark:text-emerald-400">
-              Ahorro de {money(listPrice - computedFinalPrice)} ({computedDiscountPercent?.toLocaleString("es-AR", { maximumFractionDigits: 2 })}%)
-            </p>
-          )}
-          <div className="flex items-center justify-between pt-1.5 mt-1.5 border-t border-dashed border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400">
-            <span>Precio final con IVA (vista de la tienda)</span>
-            <span className="tabular-nums">{computedFinalPriceGross !== null ? money(computedFinalPriceGross) : "—"}</span>
-          </div>
-        </div>
+        <CurrencyPricingPreview
+          currency="ARS"
+          listPrice={previewArs.listPrice}
+          finalPrice={previewArs.finalPrice}
+          discountPercent={previewArs.discountPercent}
+        />
+        <CurrencyPricingPreview
+          currency="USD"
+          listPrice={previewUsd.listPrice}
+          finalPrice={previewUsd.finalPrice}
+          discountPercent={previewUsd.discountPercent}
+        />
       </div>
 
       {serverError && <p className="text-sm text-red-500 dark:text-red-400 text-center">{serverError}</p>}

@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 from pydantic import BaseModel
-from models.enums import QuoteStatus
+from models.enums import QuoteStatus, Currency
 
 
 class QuotesByStatus(BaseModel):
@@ -29,7 +29,9 @@ class DashboardStats(BaseModel):
     active_products: int
     active_supplies: int
     approved_quotes_count: int
-    approved_quotes_value: Decimal
+    # Never summed across currencies — one total per currency, keyed by
+    # Currency ("ARS"/"USD"); a currency with no approved quotes maps to 0.
+    approved_quotes_value: dict[Currency, Decimal]
     pending_consultations: int
     quotes_by_status: list[QuotesByStatus]
     quotes_last_30_days: list[QuotesPerDay]

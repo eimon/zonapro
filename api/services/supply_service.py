@@ -9,7 +9,8 @@ from exceptions.general import NotFoundException, ConflictException, BadRequestE
 
 def _attach_variant_final_prices(supply: Supply) -> Supply:
     for variant in supply.variants:
-        variant.final_price = _compute_final_price(variant.price, supply.iva_rate)
+        variant.final_price_ars = _compute_final_price(variant.price_ars, supply.iva_rate)
+        variant.final_price_usd = _compute_final_price(variant.price_usd, supply.iva_rate)
     return supply
 
 
@@ -54,8 +55,9 @@ class SupplyService:
         supply = await self.repo.create(data)
 
         for variant_data in data.variants:
-            variant_price = _to_net_price(variant_data.price, variant_data.price_input_mode, data.iva_rate)
-            await self.variant_repo.create(supply.id, variant_data, price=variant_price)
+            price_ars = _to_net_price(variant_data.price_ars, variant_data.price_input_mode, data.iva_rate)
+            price_usd = _to_net_price(variant_data.price_usd, variant_data.price_input_mode, data.iva_rate)
+            await self.variant_repo.create(supply.id, variant_data, price_ars=price_ars, price_usd=price_usd)
 
         # reload with variants
         reloaded = await self.repo.get_with_variants(supply.id)
@@ -83,9 +85,11 @@ class SupplyService:
     async def create_variant(self, supply_id: uuid.UUID, data: SupplyVariantCreate) -> SupplyVariant:
         supply = await self.get_by_id(supply_id)  # ensures supply exists
         await self._assert_sku_free(data.sku)
-        price = _to_net_price(data.price, data.price_input_mode, supply.iva_rate)
-        variant = await self.variant_repo.create(supply_id, data, price=price)
-        variant.final_price = _compute_final_price(variant.price, supply.iva_rate)
+        price_ars = _to_net_price(data.price_ars, data.price_input_mode, supply.iva_rate)
+        price_usd = _to_net_price(data.price_usd, data.price_input_mode, supply.iva_rate)
+        variant = await self.variant_repo.create(supply_id, data, price_ars=price_ars, price_usd=price_usd)
+        variant.final_price_ars = _compute_final_price(variant.price_ars, supply.iva_rate)
+        variant.final_price_usd = _compute_final_price(variant.price_usd, supply.iva_rate)
         return variant
 
     async def update_variant(self, variant_id: uuid.UUID, data: SupplyVariantUpdate) -> SupplyVariant:
@@ -100,11 +104,19 @@ class SupplyService:
 
         supply = await self.repo.get_by_id(obj.supply_id)
         price_input_mode = update_data.pop("price_input_mode", "net")
-        if "price" in update_data and update_data["price"] is not None:
-            update_data["price"] = _to_net_price(update_data["price"], price_input_mode, supply.iva_rate)
+        if "price_ars" in update_data and update_data["price_ars"] is not None:
+            update_data["price_ars"] = _to_net_price(update_data["price_ars"], price_input_mode, supply.iva_rate)
+        if "price_usd" in update_data and update_data["price_usd"] is not None:
+            update_data["price_usd"] = _to_net_price(update_data["price_usd"], price_input_mode, supply.iva_rate)
+
+        effective_ars = update_data.get("price_ars", obj.price_ars)
+        effective_usd = update_data.get("price_usd", obj.price_usd)
+        if effective_ars is None and effective_usd is None:
+            raise BadRequestException("Debés indicar al menos un precio (ARS o USD)")
 
         variant = await self.variant_repo.update(obj, **update_data)
-        variant.final_price = _compute_final_price(variant.price, supply.iva_rate)
+        variant.final_price_ars = _compute_final_price(variant.price_ars, supply.iva_rate)
+        variant.final_price_usd = _compute_final_price(variant.price_usd, supply.iva_rate)
         return variant
 
     async def delete_variant(self, variant_id: uuid.UUID) -> None:

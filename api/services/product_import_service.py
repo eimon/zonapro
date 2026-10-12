@@ -192,8 +192,12 @@ class ProductImportService:
         variants_payload = []
         for ctx in rows:
             vf = dict(ctx.variant_fields)
-            if "sku" not in vf or "name" not in vf or "price" not in vf:
-                raise RowError(f"faltan campos obligatorios de variante en la fila {ctx.row_number}", row_number=ctx.row_number)
+            if "sku" not in vf or "name" not in vf or ("price_ars" not in vf and "price_usd" not in vf):
+                raise RowError(
+                    f"faltan campos obligatorios de variante en la fila {ctx.row_number} "
+                    "(sku, variant_name y al menos un precio)",
+                    row_number=ctx.row_number,
+                )
             variants_payload.append(ProductVariantCreate(**vf))
 
         create_data = ProductCreate(
@@ -225,15 +229,21 @@ class ProductImportService:
 
             if variant is not None:
                 mode = vf.pop("price_input_mode", "net")
-                if "price" in vf:
-                    vf["price"] = _to_net_price(vf["price"], mode, product.iva_rate)
+                if "price_ars" in vf:
+                    vf["price_ars"] = _to_net_price(vf["price_ars"], mode, product.iva_rate)
+                if "price_usd" in vf:
+                    vf["price_usd"] = _to_net_price(vf["price_usd"], mode, product.iva_rate)
                 changed = _dirty(variant, vf)
                 if changed:
                     await self.service.update_variant(variant.id, ProductVariantUpdate(**changed, price_input_mode="net"))
                     tally["variants_updated"] += 1
             else:
-                if "sku" not in vf or "name" not in vf or "price" not in vf:
-                    raise RowError(f"faltan campos obligatorios de variante en la fila {ctx.row_number}", row_number=ctx.row_number)
+                if "sku" not in vf or "name" not in vf or ("price_ars" not in vf and "price_usd" not in vf):
+                    raise RowError(
+                        f"faltan campos obligatorios de variante en la fila {ctx.row_number} "
+                        "(sku, variant_name y al menos un precio)",
+                        row_number=ctx.row_number,
+                    )
                 await self.service.create_variant(product.id, ProductVariantCreate(**vf))
                 tally["variants_created"] += 1
 

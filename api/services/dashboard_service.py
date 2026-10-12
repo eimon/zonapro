@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.pricing import quote_total
+from models.enums import Currency
 from repositories.dashboard_repository import DashboardRepository
 from schemas.dashboard import DashboardStats, LowStockVariant, QuotesByStatus, QuotesPerDay
 
@@ -23,13 +24,16 @@ class DashboardService:
         since = datetime.now(timezone.utc) - timedelta(days=DAYS_WINDOW - 1)
         per_day_rows = await self.repo.count_quotes_per_day(since)
 
+        # Never sum amounts across currencies — one total per currency.
+        approved_quotes_value: dict[Currency, Decimal] = {c: Decimal("0") for c in Currency}
+        for q in approved_quotes:
+            approved_quotes_value[q.currency] += quote_total(q)
+
         return DashboardStats(
             active_products=active_products,
             active_supplies=active_supplies,
             approved_quotes_count=len(approved_quotes),
-            approved_quotes_value=sum(
-                (quote_total(q) for q in approved_quotes), Decimal("0")
-            ),
+            approved_quotes_value=approved_quotes_value,
             pending_consultations=pending_consultations,
             quotes_by_status=[
                 QuotesByStatus(status=status, count=count) for status, count in status_rows

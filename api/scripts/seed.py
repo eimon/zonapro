@@ -154,7 +154,12 @@ async def upsert_products(db, categories: dict) -> None:
         await db.flush()
 
         for v in entry["variants"]:
-            db.add(ProductVariant(product_id=product.id, **v))
+            # Seed prices are historical, single-currency values — kept as
+            # USD per the multi-currency migration's data semantics (every
+            # pre-existing price is a USD amount). ARS stays unset (NULL).
+            variant_kwargs = {k: val for k, val in v.items() if k != "price"}
+            variant_kwargs["price_usd"] = v["price"]
+            db.add(ProductVariant(product_id=product.id, **variant_kwargs))
 
         print(f"  [ok]   producto '{product.slug}' creado ({len(entry['variants'])} variante/s)")
 

@@ -13,12 +13,18 @@ import { ArrowLeft, Package, Layers, Plus, Trash2 } from "lucide-react";
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
 
-const variantSchema = z.object({
-  sku: z.string().min(1, "SKU requerido"),
-  name: z.string().min(1, "Nombre requerido"),
-  price: z.string().min(1, "Precio requerido"),
-  stock_qty: z.number().int().min(0),
-});
+const variantSchema = z
+  .object({
+    sku: z.string().min(1, "SKU requerido"),
+    name: z.string().min(1, "Nombre requerido"),
+    price_ars: z.string().optional(),
+    price_usd: z.string().optional(),
+    stock_qty: z.number().int().min(0),
+  })
+  .refine((v) => !!v.price_ars?.trim() || !!v.price_usd?.trim(), {
+    message: "Ingresá al menos un precio (ARS o USD)",
+    path: ["price_ars"],
+  });
 
 const baseSchema = z.object({
   name: z.string().min(1, "Nombre requerido"),
@@ -38,7 +44,8 @@ const baseSchema = z.object({
   iva_rate: z.enum(["0", "10.5", "21"]),
   price_input_mode: z.enum(["net", "final"]),
   // simple mode
-  simple_price: z.string().optional(),
+  simple_price_ars: z.string().optional(),
+  simple_price_usd: z.string().optional(),
   simple_stock: z.number().int().min(0).optional(),
   // variants mode
   variants: z.array(variantSchema).optional(),
@@ -59,13 +66,13 @@ function slugify(text: string): string {
     .replace(/\s+/g, "-");
 }
 
-function priceHint(rawPrice: string | undefined, mode: "net" | "final", ivaRate: string): string | null {
+function priceHint(rawPrice: string | undefined, mode: "net" | "final", ivaRate: string, symbol: string): string | null {
   const value = rawPrice ? parseFloat(rawPrice) : NaN;
   if (!rawPrice || Number.isNaN(value)) return null;
   const rate = parseFloat(ivaRate) / 100;
   const converted = mode === "net" ? value * (1 + rate) : value / (1 + rate);
   const label = mode === "net" ? "final (con IVA)" : "neto (sin IVA)";
-  return `= $${converted.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${label}`;
+  return `= ${symbol}${converted.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${label}`;
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -129,7 +136,8 @@ export default function NuevoProductoPage() {
   const { fields, append, remove } = useFieldArray({ control, name: "variants" });
 
   const nameValue = useWatch({ control, name: "name" });
-  const simplePriceValue = useWatch({ control, name: "simple_price" });
+  const simplePriceArsValue = useWatch({ control, name: "simple_price_ars" });
+  const simplePriceUsdValue = useWatch({ control, name: "simple_price_usd" });
   const ivaRateValue = useWatch({ control, name: "iva_rate" });
   const priceInputModeValue = useWatch({ control, name: "price_input_mode" });
 
@@ -150,7 +158,7 @@ export default function NuevoProductoPage() {
       // validation (and block submission) even though it's not rendered.
       setValue("variants", []);
     } else if (next === "variants") {
-      setValue("variants", [{ sku: "", name: "", price: "", stock_qty: 0 }]);
+      setValue("variants", [{ sku: "", name: "", price_ars: "", price_usd: "", stock_qty: 0 }]);
     }
   };
 
@@ -160,8 +168,8 @@ export default function NuevoProductoPage() {
 
     // Validate mode-specific fields
     if (mode === "simple") {
-      if (!data.simple_price) {
-        setModeError("El precio es requerido.");
+      if (!data.simple_price_ars && !data.simple_price_usd) {
+        setModeError("Ingresá al menos un precio (ARS o USD).");
         return;
       }
     } else {
@@ -171,8 +179,8 @@ export default function NuevoProductoPage() {
         return;
       }
       for (const v of vars) {
-        if (!v.sku || !v.name || !v.price) {
-          setModeError("Completá SKU, nombre y precio en todas las variantes.");
+        if (!v.sku || !v.name || (!v.price_ars && !v.price_usd)) {
+          setModeError("Completá SKU, nombre y al menos un precio en todas las variantes.");
           return;
         }
       }
@@ -188,7 +196,8 @@ export default function NuevoProductoPage() {
               {
                 sku: data.slug,
                 name: "Único",
-                price: parseFloat(data.simple_price as string),
+                price_ars: data.simple_price_ars ? parseFloat(data.simple_price_ars) : null,
+                price_usd: data.simple_price_usd ? parseFloat(data.simple_price_usd) : null,
                 price_input_mode: data.price_input_mode,
                 stock_qty: data.simple_stock ?? 0,
               },
@@ -196,7 +205,8 @@ export default function NuevoProductoPage() {
           : (data.variants ?? []).map((v) => ({
               sku: v.sku,
               name: v.name,
-              price: parseFloat(v.price),
+              price_ars: v.price_ars ? parseFloat(v.price_ars) : null,
+              price_usd: v.price_usd ? parseFloat(v.price_usd) : null,
               price_input_mode: data.price_input_mode,
               stock_qty: v.stock_qty,
             }));
@@ -396,18 +406,34 @@ export default function NuevoProductoPage() {
           {/* Simple mode */}
           {mode === "simple" && (
             <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <InputField label="Precio (ARS)" error={errors.simple_price?.message}>
+              <InputField label="Precio ARS (neto)" error={errors.simple_price_ars?.message}>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
                   placeholder="0.00"
                   className={inputClass}
-                  {...register("simple_price")}
+                  {...register("simple_price_ars")}
                 />
-                {priceHint(simplePriceValue, priceInputModeValue, ivaRateValue) && (
+                {priceHint(simplePriceArsValue, priceInputModeValue, ivaRateValue, "$") && (
                   <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                    {priceHint(simplePriceValue, priceInputModeValue, ivaRateValue)}
+                    {priceHint(simplePriceArsValue, priceInputModeValue, ivaRateValue, "$")}
+                  </p>
+                )}
+              </InputField>
+
+              <InputField label="Precio USD (neto)" error={errors.simple_price_usd?.message}>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className={inputClass}
+                  {...register("simple_price_usd")}
+                />
+                {priceHint(simplePriceUsdValue, priceInputModeValue, ivaRateValue, "US$") && (
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                    {priceHint(simplePriceUsdValue, priceInputModeValue, ivaRateValue, "US$")}
                   </p>
                 )}
               </InputField>
@@ -434,7 +460,7 @@ export default function NuevoProductoPage() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => append({ sku: "", name: "", price: "", stock_qty: 0 })}
+                  onClick={() => append({ sku: "", name: "", price_ars: "", price_usd: "", stock_qty: 0 })}
                   className="flex items-center gap-1.5 text-xs font-medium text-brand-blue hover:opacity-80 transition-opacity cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -450,7 +476,7 @@ export default function NuevoProductoPage() {
                     key={field.id}
                     className="grid grid-cols-12 gap-3 p-4 bg-zinc-50 dark:bg-zinc-950/60 rounded-lg border border-zinc-200 dark:border-zinc-800"
                   >
-                    <div className="col-span-12 sm:col-span-3">
+                    <div className="col-span-12 sm:col-span-2">
                       <InputField
                         label="SKU"
                         required
@@ -478,10 +504,10 @@ export default function NuevoProductoPage() {
                         />
                       </InputField>
                     </div>
-                    <div className="col-span-6 sm:col-span-3">
+                    <div className="col-span-6 sm:col-span-2">
                       <InputField
-                        label="Precio (ARS)"
-                        error={errors.variants?.[index]?.price?.message}
+                        label="Precio ARS (neto)"
+                        error={errors.variants?.[index]?.price_ars?.message}
                       >
                         <input
                           type="number"
@@ -489,7 +515,19 @@ export default function NuevoProductoPage() {
                           step="0.01"
                           placeholder="0.00"
                           className={inputClass}
-                          {...register(`variants.${index}.price`)}
+                          {...register(`variants.${index}.price_ars`)}
+                        />
+                      </InputField>
+                    </div>
+                    <div className="col-span-6 sm:col-span-2">
+                      <InputField label="Precio USD (neto)">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          className={inputClass}
+                          {...register(`variants.${index}.price_usd`)}
                         />
                       </InputField>
                     </div>
