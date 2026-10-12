@@ -44,6 +44,7 @@ _KIND_LABELS = {
 }
 
 _VARIANT_PRICE_FIELD = {Currency.ARS: "price_ars", Currency.USD: "price_usd"}
+_CATALOG_ITEM_KINDS = frozenset({QuoteItemKind.product, QuoteItemKind.supply})
 
 
 def _assert_item_kind_allowed(quote_type: QuoteType, kind: QuoteItemKind) -> None:
@@ -248,12 +249,18 @@ class QuoteService:
 
         update_data = data.model_dump(exclude_unset=True)
 
-        # Currency is locked once the quote has items — every existing item's
-        # unit_price snapshot is in the quote's current currency, and letting
-        # it change afterward would silently make those snapshots wrong.
-        if "currency" in update_data and update_data["currency"] != quote.currency and quote.items:
+        # Currency is locked once the quote has product or supply items — their
+        # unit_price snapshot comes from the catalog price in the quote's
+        # current currency, so changing it would silently make those wrong.
+        # Service items carry a manual amount, which is kept as-is (the number
+        # is not converted) when the currency changes.
+        if (
+            "currency" in update_data
+            and update_data["currency"] != quote.currency
+            and any(item.kind in _CATALOG_ITEM_KINDS for item in quote.items)
+        ):
             raise BadRequestException(
-                "No se puede cambiar la moneda de una cotización que ya tiene ítems cargados"
+                "No se puede cambiar la moneda de una cotización que ya tiene productos o insumos cargados"
             )
 
         # Validate status transition
