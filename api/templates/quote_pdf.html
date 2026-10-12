@@ -349,9 +349,6 @@
               <div class="item-description">
                 {{ item.service_description or "Servicio" }}
               </div>
-              {% if item.hours %}
-                <div class="item-meta">{{ item.hours }} hs.</div>
-              {% endif %}
             {% endif %}
             {% if contempla_iva %}
               <div class="item-meta">IVA {{ item.iva_rate }}% ({{ currency_symbol }} {{ item.display_iva_amount | ars }})</div>

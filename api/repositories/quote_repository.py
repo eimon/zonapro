@@ -107,8 +107,6 @@ class QuoteRepository(BaseRepository[Quote]):
         supply_name_snapshot: str | None = None,
         supply_sku_snapshot: str | None = None,
         service_description: str | None = None,
-        hours: Decimal | None = None,
-        hourly_rate_snapshot: Decimal | None = None,
         quantity: Decimal = Decimal("1"),
         iva_rate: Decimal = Decimal("0"),
     ) -> QuoteItem:
@@ -123,8 +121,6 @@ class QuoteRepository(BaseRepository[Quote]):
             supply_name_snapshot=supply_name_snapshot,
             supply_sku_snapshot=supply_sku_snapshot,
             service_description=service_description,
-            hours=hours,
-            hourly_rate_snapshot=hourly_rate_snapshot,
             quantity=quantity,
             unit_price=unit_price,
             subtotal=subtotal,

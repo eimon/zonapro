@@ -21,7 +21,6 @@ class QuoteItemCreate(BaseModel):
     supply_variant_id: Optional[uuid.UUID] = None
     # service kind
     service_description: Optional[str] = None
-    hours: Optional[Decimal] = None
     # common
     quantity: Decimal = Field(default=Decimal("1"), gt=0, max_digits=10, decimal_places=2)
     # Required for kind=service (manual concept lines) — for kind=product and
@@ -80,8 +79,6 @@ class QuoteItemResponse(BaseModel):
     supply_name_snapshot: Optional[str]
     supply_sku_snapshot: Optional[str]
     service_description: Optional[str]
-    hours: Optional[Decimal]
-    hourly_rate_snapshot: Optional[Decimal]
     # float, not Decimal: Pydantic serializes Decimal as a JSON string, and
     # the web consumes quantity as a number.
     quantity: float

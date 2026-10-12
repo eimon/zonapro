@@ -334,8 +334,6 @@ export type QuoteItem = {
   supply_name_snapshot: string | null;
   supply_sku_snapshot: string | null;
   service_description: string | null;
-  hours: string | null;
-  hourly_rate_snapshot: string | null;
   quantity: number;
   unit_price: string;
   subtotal: string;
@@ -690,17 +688,6 @@ export const api = {
   },
 
   settings: {
-    // One rate per currency — a servicios quote always uses the rate
-    // matching its own currency.
-    getHourlyRate: (currency: Currency) =>
-      request<{ key: string; currency: Currency; value: string }>(`/api/v1/settings/hourly-rate/${currency}`),
-    setHourlyRate: (currency: Currency, value: string, token: string) =>
-      request<{ key: string; currency: Currency; value: string }>(
-        `/api/v1/settings/hourly-rate/${currency}`,
-        { method: "PATCH", body: JSON.stringify({ value }) },
-        token,
-      ),
-
     getRegistrationEnabled: () =>
       request<RegistrationEnabled>("/api/v1/settings/registration-enabled"),
     setRegistrationEnabled: (enabled: boolean, token: string) =>

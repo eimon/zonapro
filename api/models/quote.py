@@ -119,8 +119,6 @@ class QuoteItem(UUIDMixin, TimestampMixin, Base):
 
     # For kind=service
     service_description = Column(Text, nullable=True)
-    hours = Column(Numeric(8, 2), nullable=True)
-    hourly_rate_snapshot = Column(Numeric(12, 2), nullable=True)
 
     # Common
     quantity = Column(Numeric(10, 2), nullable=False, default=1)

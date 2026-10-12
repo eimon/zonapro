@@ -2,7 +2,6 @@ import uuid
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.pricing import quote_total, installation_cost_amount, items_iva_total, installation_cost_iva_amount
-from repositories.app_setting_repository import AppSettingRepository
 from repositories.quote_repository import QuoteRepository
 from repositories.product_repository import ProductVariantRepository
 from repositories.supply_repository import SupplyVariantRepository
@@ -92,14 +91,8 @@ def _validate_installation_cost(
 class QuoteService:
     def __init__(self, db: AsyncSession):
         self.repo = QuoteRepository(db)
-        self.setting_repo = AppSettingRepository(db)
         self.variant_repo = ProductVariantRepository(db)
         self.supply_variant_repo = SupplyVariantRepository(db)
-
-    async def get_hourly_rate(self, currency: Currency) -> Decimal:
-        key = f"hourly_rate_{currency.value.lower()}"
-        val = await self.setting_repo.get_value(key)
-        return Decimal(val or "0")
 
     def _check_ownership(self, quote: Quote, user: User) -> None:
         if "QUOTE_VIEW_ALL" not in (p.value if hasattr(p, "value") else p for p in user.permissions):
@@ -113,7 +106,6 @@ class QuoteService:
         # Fail fast on a bad payload before any row is written.
         for item_data in data.items:
             _assert_item_kind_allowed(data.quote_type, item_data.kind)
-        hourly_rate = await self.get_hourly_rate(data.currency)
 
         quote = await self.repo.create_quote(
             quote_type=data.quote_type,
@@ -135,7 +127,7 @@ class QuoteService:
         )
 
         for item_data in data.items:
-            await self._build_item(quote.id, item_data, hourly_rate, data.quote_type, data.currency)
+            await self._build_item(quote.id, item_data, data.quote_type, data.currency)
 
         # Reload with items
         full_quote = await self.repo.get_with_items(quote.id)
@@ -145,7 +137,6 @@ class QuoteService:
         self,
         quote_id: uuid.UUID,
         item_data: QuoteItemCreate,
-        hourly_rate: Decimal,
         quote_type: QuoteType,
         currency: Currency,
     ) -> QuoteItem:
@@ -155,7 +146,6 @@ class QuoteService:
         product_sku_snapshot = None
         supply_name_snapshot = None
         supply_sku_snapshot = None
-        hourly_rate_snapshot = None
         iva_rate = Decimal("0")
         unit_price = item_data.unit_price
         price_field = _VARIANT_PRICE_FIELD[currency]
@@ -206,7 +196,6 @@ class QuoteService:
             unit_price = variant_price
 
         if item_data.kind == QuoteItemKind.service:
-            hourly_rate_snapshot = hourly_rate
             # Client-supplied only for services; never trusted for products
             # or supplies.
             iva_rate = item_data.iva_rate if item_data.iva_rate is not None else Decimal("21")
@@ -224,8 +213,6 @@ class QuoteService:
             supply_name_snapshot=supply_name_snapshot,
             supply_sku_snapshot=supply_sku_snapshot,
             service_description=item_data.service_description,
-            hours=item_data.hours,
-            hourly_rate_snapshot=hourly_rate_snapshot,
             quantity=item_data.quantity,
             unit_price=unit_price,
             subtotal=subtotal,
@@ -306,8 +293,7 @@ class QuoteService:
             raise NotFoundException("Cotización no encontrada")
         self._check_ownership(quote, user)
 
-        hourly_rate = await self.get_hourly_rate(quote.currency)
-        await self._build_item(quote_id, data, hourly_rate, quote.quote_type, quote.currency)
+        await self._build_item(quote_id, data, quote.quote_type, quote.currency)
         await self.repo.update_quote(quote, updated_by_id=user.id)
 
         updated = await self.repo.get_with_items(quote_id)

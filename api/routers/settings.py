@@ -6,47 +6,9 @@ from core.config import settings
 from core.database import get_db
 from core.roles import Permission
 from dependencies.auth import has_role
-from models.enums import Currency
 from repositories.app_setting_repository import AppSettingRepository
 
 router = APIRouter(prefix=f"{settings.API_V1_STR}/settings", tags=["settings"])
-
-
-class HourlyRateResponse(BaseModel):
-    key: str
-    currency: Currency
-    value: str
-
-
-class HourlyRateUpdate(BaseModel):
-    value: str
-
-
-def _hourly_rate_key(currency: Currency) -> str:
-    return f"hourly_rate_{currency.value.lower()}"
-
-
-# One rate per currency (D: hourly_rate_ars / hourly_rate_usd app_settings
-# rows) — a servicios quote always uses the rate matching its own currency.
-@router.get("/hourly-rate/{currency}", response_model=HourlyRateResponse)
-async def get_hourly_rate(currency: Currency, db: AsyncSession = Depends(get_db)):
-    repo = AppSettingRepository(db)
-    key = _hourly_rate_key(currency)
-    value = await repo.get_value(key)
-    return HourlyRateResponse(key=key, currency=currency, value=value or "0")
-
-
-@router.patch("/hourly-rate/{currency}", response_model=HourlyRateResponse)
-async def set_hourly_rate(
-    currency: Currency,
-    data: HourlyRateUpdate,
-    db: AsyncSession = Depends(get_db),
-    _: object = Depends(has_role(Permission.SETTINGS_MANAGE)),
-):
-    repo = AppSettingRepository(db)
-    key = _hourly_rate_key(currency)
-    setting = await repo.set_value(key, data.value)
-    return HourlyRateResponse(key=setting.key, currency=currency, value=setting.value)
 
 
 class RegistrationEnabledResponse(BaseModel):
