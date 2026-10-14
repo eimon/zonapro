@@ -33,8 +33,8 @@ import { formatMoney } from "@/lib/format";
 //   node validate_palette.js "#326fc8,#eb6834,#1baf7a,#eda100,#e87ba4,#008300,#4a3aa7,#e34948" --mode light
 //   node validate_palette.js "#4a84e0,#d95926,#199e70,#c98500,#d55181,#008300,#9085e9,#e66767" --mode dark
 // Both PASS all hard gates (worst adjacent CVD 9.1 light / 8.4 dark,
-// normal-vision 19.6 light / 19.3 dark). Only slots 1 (productos) and 2
-// (servicios) are used here, for the two-series time chart.
+// normal-vision 19.6 light / 19.3 dark). Slots 1-3 map to the three quote
+// types (productos, servicios, construccion) in both charts.
 const PALETTE = {
   light: {
     surface: "#fcfcfb",
@@ -43,10 +43,7 @@ const PALETTE = {
     textMuted: "#898781",
     productos: "#326fc8",
     servicios: "#eb6834",
-    // Single flat hue for the status bar chart (magnitude comparison, not
-    // series identity) — same brand blue as the "productos" series, reused
-    // under its own name so the two uses don't read as the same concept.
-    accent: "#326fc8",
+    construccion: "#1baf7a",
   },
   dark: {
     surface: "#1a1a19",
@@ -55,9 +52,16 @@ const PALETTE = {
     textMuted: "#898781",
     productos: "#4a84e0",
     servicios: "#d95926",
-    accent: "#4a84e0",
+    construccion: "#199e70",
   },
 } as const;
+
+// One series per quote type; same order and colors in every chart.
+const QUOTE_TYPE_SERIES = [
+  { key: "productos", label: "Productos" },
+  { key: "servicios", label: "Servicios" },
+  { key: "construccion", label: "Construcción" },
+] as const;
 
 const STATUS_ORDER = ["borrador", "enviada", "aprobada", "rechazada", "vencida"] as const;
 const STATUS_LABELS: Record<string, string> = {
@@ -79,10 +83,12 @@ function StatTile({
   icon: Icon,
   label,
   value,
+  breakdown,
 }: {
   icon: ComponentType<{ className?: string }>;
   label: string;
   value: string | number;
+  breakdown?: { label: string; value: string | number }[];
 }) {
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
@@ -91,6 +97,16 @@ function StatTile({
         <span className="text-xs font-medium">{label}</span>
       </div>
       <p className="text-2xl font-semibold text-zinc-900 dark:text-white">{value}</p>
+      {breakdown && (
+        <dl className="mt-3 space-y-1 border-t border-zinc-100 dark:border-zinc-800 pt-2">
+          {breakdown.map((row) => (
+            <div key={row.label} className="flex items-center justify-between gap-2 text-xs">
+              <dt className="text-zinc-500 dark:text-zinc-400">{row.label}</dt>
+              <dd className="font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
     </div>
   );
 }
@@ -209,18 +225,26 @@ export default function DashboardPage() {
     );
   }
 
-  const statusData = STATUS_ORDER.map((status) => ({
-    status,
-    label: STATUS_LABELS[status],
-    count: stats?.quotes_by_status.find((s) => s.status === status)?.count ?? 0,
-  }));
+  const statusData = STATUS_ORDER.map((status) => {
+    const row = stats?.quotes_by_status.find((s) => s.status === status);
+    return {
+      status,
+      label: STATUS_LABELS[status],
+      count: row?.count ?? 0,
+      productos: row?.productos ?? 0,
+      servicios: row?.servicios ?? 0,
+      construccion: row?.construccion ?? 0,
+    };
+  });
   const hasStatusActivity = statusData.some((d) => d.count > 0);
 
   const timeSeriesData = (stats?.quotes_last_30_days ?? []).map((d) => ({
     ...d,
     label: formatShortDate(d.date),
   }));
-  const hasQuoteActivity = timeSeriesData.some((d) => d.productos > 0 || d.servicios > 0);
+  const hasQuoteActivity = timeSeriesData.some(
+    (d) => d.productos > 0 || d.servicios > 0 || d.construccion > 0,
+  );
 
   return (
     <div className="space-y-6">
@@ -240,9 +264,33 @@ export default function DashboardPage() {
             <StatTile icon={Package} label="Productos activos" value={stats.active_products} />
             <StatTile icon={Boxes} label="Insumos activos" value={stats.active_supplies} />
             {/* Never summed across currencies — one tile per currency. */}
-            <StatTile icon={Wallet} label="Cotiz. aprobadas (ARS)" value={formatMoney(stats.approved_quotes_value.ARS, "ARS")} />
-            <StatTile icon={Wallet} label="Cotiz. aprobadas (USD)" value={formatMoney(stats.approved_quotes_value.USD, "USD")} />
-            <StatTile icon={CheckCircle2} label="Cotiz. aprobadas" value={stats.approved_quotes_count} />
+            <StatTile
+              icon={Wallet}
+              label="Cotiz. aprobadas (ARS)"
+              value={formatMoney(stats.approved_quotes_value.ARS, "ARS")}
+              breakdown={QUOTE_TYPE_SERIES.map((s) => ({
+                label: s.label,
+                value: formatMoney(stats.approved_quotes_by_type[s.key].value.ARS, "ARS"),
+              }))}
+            />
+            <StatTile
+              icon={Wallet}
+              label="Cotiz. aprobadas (USD)"
+              value={formatMoney(stats.approved_quotes_value.USD, "USD")}
+              breakdown={QUOTE_TYPE_SERIES.map((s) => ({
+                label: s.label,
+                value: formatMoney(stats.approved_quotes_by_type[s.key].value.USD, "USD"),
+              }))}
+            />
+            <StatTile
+              icon={CheckCircle2}
+              label="Cotiz. aprobadas"
+              value={stats.approved_quotes_count}
+              breakdown={QUOTE_TYPE_SERIES.map((s) => ({
+                label: s.label,
+                value: stats.approved_quotes_by_type[s.key].count,
+              }))}
+            />
             <StatTile icon={MessageSquare} label="Consultas pendientes" value={stats.pending_consultations} />
           </>
         )}
@@ -250,7 +298,7 @@ export default function DashboardPage() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {/* Time series: quotes per day, last 30 days, 2 series → line chart
+        {/* Time series: quotes per day, last 30 days, 3 series → line chart
             with a legend (mandatory for 2+ series) and a shared tooltip. */}
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-white mb-1">Cotizaciones por día</h2>
@@ -283,24 +331,18 @@ export default function DashboardPage() {
                       wrapperStyle={{ fontSize: 12 }}
                       formatter={(value) => <span className="text-zinc-600 dark:text-zinc-300">{value}</span>}
                     />
-                    <Line
-                      type="monotone"
-                      dataKey="productos"
-                      name="Productos"
-                      stroke={colors.productos}
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4, strokeWidth: 2, stroke: colors.surface }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="servicios"
-                      name="Servicios"
-                      stroke={colors.servicios}
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4, strokeWidth: 2, stroke: colors.surface }}
-                    />
+                    {QUOTE_TYPE_SERIES.map((s) => (
+                      <Line
+                        key={s.key}
+                        type="monotone"
+                        dataKey={s.key}
+                        name={s.label}
+                        stroke={colors[s.key]}
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4, strokeWidth: 2, stroke: colors.surface }}
+                      />
+                    ))}
                   </LineChart>
                 </ResponsiveContainer>
                 {!hasQuoteActivity && (
@@ -320,16 +362,18 @@ export default function DashboardPage() {
                     <thead>
                       <tr className="text-left text-zinc-400 dark:text-zinc-500">
                         <th className="py-1 pr-2">Fecha</th>
-                        <th className="py-1 pr-2 text-right">Productos</th>
-                        <th className="py-1 text-right">Servicios</th>
+                        {QUOTE_TYPE_SERIES.map((s) => (
+                          <th key={s.key} className="py-1 pl-2 text-right">{s.label}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
                       {timeSeriesData.map((d) => (
                         <tr key={d.date} className="border-t border-zinc-100 dark:border-zinc-800">
                           <td className="py-1 pr-2 tabular-nums">{d.label}</td>
-                          <td className="py-1 pr-2 text-right tabular-nums">{d.productos}</td>
-                          <td className="py-1 text-right tabular-nums">{d.servicios}</td>
+                          {QUOTE_TYPE_SERIES.map((s) => (
+                            <td key={s.key} className="py-1 pl-2 text-right tabular-nums">{d[s.key]}</td>
+                          ))}
                         </tr>
                       ))}
                     </tbody>
@@ -340,18 +384,15 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Status breakdown: this is a magnitude-comparison job (how many
-            quotes sit in each status), not an identity/series-telling-apart
-            job — per dataviz/choosing-a-form.md that maps to a bar chart
-            with ONE flat hue, not a per-bar categorical rainbow (see
-            anti-patterns.md: "a value-ramp on nominal categories" is the
-            wrong tool here). Category identity comes from the x-axis tick
-            labels + the always-visible value-at-cap labels, never from
-            color alone. A donut/pie was ruled out per anti-patterns.md —
-            comparing 5 close-ish magnitudes is exactly the case pies fail. */}
+        {/* Status breakdown by quote type: grouped bars (one bar per type
+            within each status), colored with the same series palette as the
+            time chart so a type reads the same everywhere. Grouped instead
+            of stacked so each type's count is compared from a shared
+            baseline; the legend + per-bar value labels keep identity from
+            relying on color alone. */}
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-white mb-1">Cotizaciones por estado</h2>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-4">Todas las cotizaciones (productos + servicios)</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-4">Todas las cotizaciones, por tipo</p>
           {loading ? (
             <ChartSkeleton />
           ) : (
@@ -381,16 +422,23 @@ export default function DashboardPage() {
                       fontSize: 12,
                     }}
                     labelStyle={{ color: colors.textMuted }}
-                    formatter={(value) => [value, "Cotizaciones"]}
                   />
-                  <Bar
-                    dataKey="count"
-                    fill={colors.accent}
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={24}
-                    activeBar={{ fillOpacity: 0.85 }}
-                    label={{ position: "top", fontSize: 11, fill: colors.textMuted }}
+                  <Legend
+                    wrapperStyle={{ fontSize: 12 }}
+                    formatter={(value) => <span className="text-zinc-600 dark:text-zinc-300">{value}</span>}
                   />
+                  {QUOTE_TYPE_SERIES.map((s) => (
+                    <Bar
+                      key={s.key}
+                      dataKey={s.key}
+                      name={s.label}
+                      fill={colors[s.key]}
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={16}
+                      activeBar={{ fillOpacity: 0.85 }}
+                      label={{ position: "top", fontSize: 10, fill: colors.textMuted }}
+                    />
+                  ))}
                 </BarChart>
               </ResponsiveContainer>
               {!hasStatusActivity && (

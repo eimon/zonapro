@@ -32,12 +32,11 @@ class DashboardRepository:
         )
         return result.scalar_one()
 
-    async def count_quotes_by_status(self) -> list[tuple[QuoteStatus, int]]:
-        # Both quote_type values combined — status applies to both flows.
+    async def count_quotes_by_status(self) -> list[tuple[QuoteStatus, QuoteType, int]]:
         result = await self.db.execute(
-            select(Quote.status, func.count())
+            select(Quote.status, Quote.quote_type, func.count())
             .where(Quote.deleted_at.is_(None))
-            .group_by(Quote.status)
+            .group_by(Quote.status, Quote.quote_type)
         )
         return list(result.all())
 
@@ -80,13 +79,13 @@ class DashboardRepository:
         )
         return list(result.scalars().all())
 
-    async def get_approved_product_quotes_with_items(self) -> list[Quote]:
+    async def get_approved_quotes_with_items(self) -> list[Quote]:
+        # All quote types: the dashboard breaks the approved totals down by type.
         result = await self.db.execute(
             select(Quote)
             .options(selectinload(Quote.items))
             .where(
                 Quote.deleted_at.is_(None),
-                Quote.quote_type == QuoteType.productos,
                 Quote.status == QuoteStatus.aprobada,
             )
         )
