@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import settings
 from core.database import get_db
@@ -12,9 +13,13 @@ router = APIRouter(prefix=f"{settings.API_V1_STR}/dashboard", tags=["dashboard"]
 
 @router.get("/stats", response_model=DashboardStats)
 async def get_dashboard_stats(
+    # Optional [since, until) period, as timezone-aware ISO datetimes. Omitted
+    # bounds mean "all time".
+    since: datetime | None = Query(None),
+    until: datetime | None = Query(None),
     db: AsyncSession = Depends(get_db),
     # Business-wide aggregate — ADMIN-only in this first version. VENDEDOR
     # only has QUOTE_VIEW_OWN and should not see numbers across all vendors.
     _=Depends(has_role(Permission.QUOTE_VIEW_ALL)),
 ):
-    return await DashboardService(db).get_stats()
+    return await DashboardService(db).get_stats(since, until)

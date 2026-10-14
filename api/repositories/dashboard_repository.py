@@ -32,12 +32,17 @@ class DashboardRepository:
         )
         return result.scalar_one()
 
-    async def count_quotes_by_status(self) -> list[tuple[QuoteStatus, QuoteType, int]]:
-        result = await self.db.execute(
-            select(Quote.status, Quote.quote_type, func.count())
-            .where(Quote.deleted_at.is_(None))
-            .group_by(Quote.status, Quote.quote_type)
+    async def count_quotes_by_status(
+        self, since: datetime | None = None, until: datetime | None = None
+    ) -> list[tuple[QuoteStatus, QuoteType, int]]:
+        query = select(Quote.status, Quote.quote_type, func.count()).where(
+            Quote.deleted_at.is_(None)
         )
+        if since is not None:
+            query = query.where(Quote.created_at >= since)
+        if until is not None:
+            query = query.where(Quote.created_at < until)
+        result = await self.db.execute(query.group_by(Quote.status, Quote.quote_type))
         return list(result.all())
 
     async def count_quotes_per_day(self, since: datetime) -> list[tuple[date, QuoteType, int]]:
@@ -79,9 +84,12 @@ class DashboardRepository:
         )
         return list(result.scalars().all())
 
-    async def get_approved_quotes_with_items(self) -> list[Quote]:
+    async def get_approved_quotes_with_items(
+        self, since: datetime | None = None, until: datetime | None = None
+    ) -> list[Quote]:
         # All quote types: the dashboard breaks the approved totals down by type.
-        result = await self.db.execute(
+        # The period filters on approval date, not creation date.
+        query = (
             select(Quote)
             .options(selectinload(Quote.items))
             .where(
@@ -89,4 +97,9 @@ class DashboardRepository:
                 Quote.status == QuoteStatus.aprobada,
             )
         )
+        if since is not None:
+            query = query.where(Quote.approved_at >= since)
+        if until is not None:
+            query = query.where(Quote.approved_at < until)
+        result = await self.db.execute(query)
         return list(result.scalars().all())

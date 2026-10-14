@@ -155,6 +155,7 @@ class QuoteClientResponse(BaseModel):
     installation_cost_value: Optional[Decimal]
     installation_cost_amount: Decimal = Decimal("0")
     contempla_iva: bool
+    approved_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     updated_by_id: Optional[uuid.UUID]

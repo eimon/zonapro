@@ -697,7 +697,14 @@ export const api = {
     // ADMIN-only aggregate (Permission.QUOTE_VIEW_ALL) — the caller must
     // gate the fetch itself so a VENDEDOR session never hits this and gets
     // a 403 (see the dashboard page's isAdmin check).
-    stats: (token: string) => request<DashboardStats>("/api/v1/dashboard/stats", {}, token),
+    // Optional [since, until) period as ISO datetimes; omitted means all time.
+    stats: (token: string, period: { since?: string; until?: string } = {}) => {
+      const qs = new URLSearchParams();
+      if (period.since) qs.set("since", period.since);
+      if (period.until) qs.set("until", period.until);
+      const query = qs.toString();
+      return request<DashboardStats>(`/api/v1/dashboard/stats${query ? `?${query}` : ""}`, {}, token);
+    },
   },
 
   settings: {

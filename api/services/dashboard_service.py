@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.pricing import quote_total
+from exceptions.general import BadRequestException
 from models.enums import Currency, QuoteType
 from repositories.dashboard_repository import DashboardRepository
 from schemas.dashboard import ApprovedQuotesSummary, DashboardStats, LowStockVariant, QuotesByStatus, QuotesPerDay
@@ -13,16 +14,23 @@ class DashboardService:
     def __init__(self, db: AsyncSession):
         self.repo = DashboardRepository(db)
 
-    async def get_stats(self) -> DashboardStats:
+    async def get_stats(
+        self, since: datetime | None = None, until: datetime | None = None
+    ) -> DashboardStats:
+        # The optional [since, until) period applies to quote-based figures
+        # only; product/supply/stock/consultation counts are current snapshots.
+        if since is not None and until is not None and since >= until:
+            raise BadRequestException("El inicio del período debe ser anterior al fin")
+
         active_products = await self.repo.count_active_products()
         active_supplies = await self.repo.count_active_supplies()
-        status_rows = await self.repo.count_quotes_by_status()
+        status_rows = await self.repo.count_quotes_by_status(since, until)
         pending_consultations = await self.repo.count_pending_consultations()
         low_stock_rows = await self.repo.get_low_stock_variants(limit=5)
-        approved_quotes = await self.repo.get_approved_quotes_with_items()
+        approved_quotes = await self.repo.get_approved_quotes_with_items(since, until)
 
-        since = datetime.now(timezone.utc) - timedelta(days=DAYS_WINDOW - 1)
-        per_day_rows = await self.repo.count_quotes_per_day(since)
+        window_start = datetime.now(timezone.utc) - timedelta(days=DAYS_WINDOW - 1)
+        per_day_rows = await self.repo.count_quotes_per_day(window_start)
 
         # Never sum amounts across currencies — one total per currency.
         approved_quotes_value: dict[Currency, Decimal] = {c: Decimal("0") for c in Currency}
