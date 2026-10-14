@@ -123,8 +123,21 @@ export default function EditarCotizacionPage() {
   // Currency must be persisted before any item is added: addItem prices
   // product/supply lines server-side from the quote's *stored* currency, so a
   // local-only change would silently price items in the old currency.
+  // TEMPORARY: approved quotes can change currency even with items, to fix
+  // quotes the multi-currency migration backfilled as USD. Amounts are kept.
+  const currencyLocked = items.length > 0 && quote?.status !== "aprobada";
+
   async function handleCurrencyChange(next: Currency) {
-    if (next === currency || items.length > 0) return;
+    if (next === currency || currencyLocked) return;
+    if (
+      items.length > 0 &&
+      !window.confirm(
+        `Se va a cambiar la moneda de ${currency} a ${next}.\n\n` +
+          `Los montos cargados NO se convierten: se mantiene el mismo número en ${next} ` +
+          `(por ejemplo, ${currency} 1.000 pasa a ser ${next} 1.000).\n\n¿Querés continuar?`,
+      )
+    )
+      return;
     const token = getToken();
     if (!token) return;
     setItemBusy(true);
@@ -255,8 +268,8 @@ export default function EditarCotizacionPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <QuoteClientFields register={register} errors={errors} placeholders={false} />
 
-        {/* Currency — locked once the quote has items, matching the
-            server-side rule (QuoteService.update). */}
+        {/* Currency — locked once the quote has items (except approved
+            quotes, temporarily), matching QuoteService.update. */}
         <div>
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Moneda</label>
           <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden w-fit">
@@ -264,22 +277,28 @@ export default function EditarCotizacionPage() {
               <button
                 key={c}
                 type="button"
-                disabled={items.length > 0 || itemBusy}
+                disabled={currencyLocked || itemBusy}
                 onClick={() => handleCurrencyChange(c)}
                 className={`px-4 py-2 text-sm font-medium transition-colors duration-150 ${
                   currency === c
                     ? "bg-brand-blue text-white"
                     : "bg-zinc-50 dark:bg-zinc-950/60 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
-                } ${items.length > 0 ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                } ${currencyLocked ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
               >
                 {c}
               </button>
             ))}
           </div>
-          {items.length > 0 && (
+          {currencyLocked ? (
             <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
               La moneda queda fija porque esta cotización ya tiene ítems cargados.
             </p>
+          ) : (
+            items.length > 0 && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                Si cambiás la moneda, los montos cargados se mantienen sin convertir.
+              </p>
+            )
           )}
         </div>
 

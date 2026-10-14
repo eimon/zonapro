@@ -317,6 +317,17 @@ export function EditServiceQuotePage({ quoteType, listHref, typeLabel }: Service
   async function handleCurrencyChange(next: Currency) {
     if (next === currency || currencyLocked) return;
     if (
+      isApproved &&
+      items.length > 0 &&
+      !window.confirm(
+        `Se va a cambiar la moneda de ${currency} a ${next}.\n\n` +
+          `Los montos cargados NO se convierten: se mantiene el mismo número en ${next} ` +
+          `(por ejemplo, ${currency} 1.000 pasa a ser ${next} 1.000).\n\n¿Querés continuar?`,
+      )
+    )
+      return;
+    if (
+      !isApproved &&
       serviceItemCount > 0 &&
       !window.confirm(
         `Se va a cambiar la moneda de ${currency} a ${next}.\n\n` +
@@ -341,7 +352,10 @@ export function EditServiceQuotePage({ quoteType, listHref, typeLabel }: Service
     }
   }
 
-  const currencyLocked = items.some((it) => it.kind !== "service");
+  // TEMPORARY: approved quotes can change currency even with product/supply
+  // items, to fix quotes the multi-currency migration backfilled as USD.
+  const isApproved = quote?.status === "aprobada";
+  const currencyLocked = !isApproved && items.some((it) => it.kind !== "service");
   const serviceItemCount = items.filter((it) => it.kind === "service").length;
 
   async function handleAddItem(item: ServiceQuoteItemDraft) {
@@ -531,9 +545,9 @@ export function EditServiceQuotePage({ quoteType, listHref, typeLabel }: Service
               La moneda queda fija porque esta cotización ya tiene productos o insumos cargados.
             </p>
           ) : (
-            serviceItemCount > 0 && (
+            (isApproved ? items.length > 0 : serviceItemCount > 0) && (
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                Si cambiás la moneda, los montos de los conceptos cargados se mantienen sin convertir.
+                Si cambiás la moneda, los montos cargados se mantienen sin convertir.
               </p>
             )
           )}
