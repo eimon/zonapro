@@ -372,7 +372,14 @@ export type Quote = {
   created_by_id?: string;
 };
 
-export type DashboardQuotesByStatus = { status: QuoteStatus; count: number };
+export type DashboardQuotesByStatus = {
+  status: QuoteStatus;
+  // Total across all quote types.
+  count: number;
+  productos: number;
+  servicios: number;
+  construccion: number;
+};
 export type DashboardQuotesPerDay = {
   date: string;
   productos: number;
@@ -387,12 +394,18 @@ export type DashboardLowStockVariant = {
   stock_qty: number;
 };
 
+export type DashboardApprovedQuotesSummary = {
+  count: number;
+  value: Record<Currency, string>;
+};
+
 export type DashboardStats = {
   active_products: number;
   active_supplies: number;
   approved_quotes_count: number;
   // Never summed across currencies — one total per currency.
   approved_quotes_value: Record<Currency, string>;
+  approved_quotes_by_type: Record<QuoteType, DashboardApprovedQuotesSummary>;
   pending_consultations: number;
   quotes_by_status: DashboardQuotesByStatus[];
   quotes_last_30_days: DashboardQuotesPerDay[];
