@@ -187,6 +187,60 @@ function TimeSeriesTooltip({
   );
 }
 
+// ── Period ────────────────────────────────────────────────────────────────────
+
+// Applies to quote-based figures only (approved totals by approval date,
+// quotes by status by creation date). Bounds are local-time midnights sent as
+// ISO datetimes; `until` is exclusive.
+const PERIOD_OPTIONS = [
+  { value: "all", label: "Total" },
+  { value: "this_month", label: "Este mes" },
+  { value: "last_month", label: "Mes anterior" },
+  { value: "last_30_days", label: "Últimos 30 días" },
+  { value: "this_year", label: "Este año" },
+  { value: "custom", label: "Personalizado" },
+] as const;
+
+type PeriodPreset = (typeof PERIOD_OPTIONS)[number]["value"];
+type Period = { since?: string; until?: string };
+
+function parseDateInput(value: string): Date | null {
+  const [y, m, d] = value.split("-").map(Number);
+  return y && m && d ? new Date(y, m - 1, d) : null;
+}
+
+// Returns null while a custom range is incomplete or inverted.
+function resolvePeriod(preset: PeriodPreset, customFrom: string, customTo: string): Period | null {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  switch (preset) {
+    case "all":
+      return {};
+    case "this_month":
+      return { since: new Date(today.getFullYear(), today.getMonth(), 1).toISOString() };
+    case "last_month":
+      return {
+        since: new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString(),
+        until: new Date(today.getFullYear(), today.getMonth(), 1).toISOString(),
+      };
+    case "last_30_days":
+      return {
+        since: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29).toISOString(),
+        until: tomorrow.toISOString(),
+      };
+    case "this_year":
+      return { since: new Date(today.getFullYear(), 0, 1).toISOString() };
+    case "custom": {
+      const from = parseDateInput(customFrom);
+      const to = parseDateInput(customTo);
+      if (!from || !to || from > to) return null;
+      const untilDay = new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1);
+      return { since: from.toISOString(), until: untilDay.toISOString() };
+    }
+  }
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -198,23 +252,42 @@ export default function DashboardPage() {
   const isDark = useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeServerSnapshot);
   const colors = isDark ? PALETTE.dark : PALETTE.light;
 
+  const [preset, setPreset] = useState<PeriodPreset>("all");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const period = resolvePeriod(preset, customFrom, customTo);
+  const periodKey = period ? `${period.since ?? ""}|${period.until ?? ""}` : null;
+
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Key of the period the current stats/error belong to; loading is derived
+  // from it so changing the period never sets state synchronously in an effect.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const loading = periodKey !== null && loadedKey !== periodKey;
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || periodKey === null) return;
     const token = getToken();
     if (!token) return;
+    const [since, until] = periodKey.split("|");
+    let cancelled = false;
     api.dashboard
-      .stats(token)
+      .stats(token, { since: since || undefined, until: until || undefined })
       .then((data) => {
+        if (cancelled) return;
         setStats(data);
         setError(null);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Error al cargar el dashboard"))
-      .finally(() => setLoading(false));
-  }, [isAdmin]);
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Error al cargar el dashboard");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadedKey(periodKey);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, periodKey]);
 
   if (!isAdmin) {
     return (
@@ -248,10 +321,58 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white tracking-tight">Dashboard</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Resumen general del negocio.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white tracking-tight">Dashboard</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Resumen general del negocio.</p>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            Período
+            <select
+              value={preset}
+              onChange={(e) => setPreset(e.target.value as PeriodPreset)}
+              className="h-9 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-white"
+            >
+              {PERIOD_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {preset === "custom" && (
+            <>
+              <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                Desde
+                <input
+                  type="date"
+                  value={customFrom}
+                  max={customTo || undefined}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="h-9 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-white"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                Hasta
+                <input
+                  type="date"
+                  value={customTo}
+                  min={customFrom || undefined}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="h-9 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-white"
+                />
+              </label>
+            </>
+          )}
+        </div>
       </div>
+
+      {preset === "custom" && period === null && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          Elegí una fecha de inicio y una de fin para aplicar el período.
+        </p>
+      )}
 
       {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
@@ -392,7 +513,9 @@ export default function DashboardPage() {
             relying on color alone. */}
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-white mb-1">Cotizaciones por estado</h2>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-4">Todas las cotizaciones, por tipo</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-4">
+            {preset === "all" ? "Todas las cotizaciones" : "Creadas en el período"}, por tipo
+          </p>
           {loading ? (
             <ChartSkeleton />
           ) : (

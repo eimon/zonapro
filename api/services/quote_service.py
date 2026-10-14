@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.pricing import quote_total, installation_cost_amount, items_iva_total, installation_cost_iva_amount
@@ -271,6 +272,8 @@ class QuoteService:
                 raise BadRequestException(
                     f"No se puede cambiar de '{quote.status.value}' a '{new_status.value}'"
                 )
+            if new_status == QuoteStatus.aprobada:
+                update_data["approved_at"] = datetime.now(timezone.utc)
 
         # Validate installation cost against the effective (merged) values.
         # quote.quote_type is read from the loaded row, never from the

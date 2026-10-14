@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Text, Integer, ForeignKey, Boolean
+from sqlalchemy import Column, String, Text, Integer, ForeignKey, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import Numeric
@@ -38,6 +38,8 @@ class Quote(UUIDMixin, TimestampMixin, SoftDeleteMixin, Base):
         nullable=False,
         default=QuoteStatus.borrador,
     )
+    # Set when the status transitions to "aprobada"; drives dashboard periods.
+    approved_at = Column(DateTime(timezone=True), nullable=True)
 
     # Installation cost — fixed amount or percentage of the products subtotal
     installation_cost_type = Column(SAEnum(InstallationCostType), nullable=True)
