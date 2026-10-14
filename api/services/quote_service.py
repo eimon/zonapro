@@ -255,9 +255,13 @@ class QuoteService:
         # current currency, so changing it would silently make those wrong.
         # Service items carry a manual amount, which is kept as-is (the number
         # is not converted) when the currency changes.
+        # TEMPORARY: approved quotes skip the lock so users can relabel the
+        # currency of quotes the multi-currency migration backfilled as USD
+        # while their amounts were in ARS. Amounts are kept, not converted.
         if (
             "currency" in update_data
             and update_data["currency"] != quote.currency
+            and quote.status != QuoteStatus.aprobada
             and any(item.kind in _CATALOG_ITEM_KINDS for item in quote.items)
         ):
             raise BadRequestException(
