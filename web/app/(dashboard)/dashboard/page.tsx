@@ -430,7 +430,7 @@ export default function DashboardPage() {
             <>
               <div className="relative">
                 <ResponsiveContainer width="100%" height={280}>
-                  <LineChart data={timeSeriesData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                  <LineChart data={timeSeriesData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke={colors.grid} strokeDasharray="0" vertical={false} />
                     <XAxis
                       dataKey="label"
@@ -445,7 +445,7 @@ export default function DashboardPage() {
                       tick={{ fontSize: 11, fill: colors.textMuted }}
                       axisLine={false}
                       tickLine={false}
-                      width={28}
+                      width={32}
                     />
                     <Tooltip content={<TimeSeriesTooltip colors={colors} />} />
                     <Legend
@@ -521,7 +521,7 @@ export default function DashboardPage() {
           ) : (
             <div className="relative">
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={statusData} margin={{ top: 20, right: 8, left: -16, bottom: 0 }}>
+                <BarChart data={statusData} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke={colors.grid} strokeDasharray="0" vertical={false} />
                   <XAxis
                     dataKey="label"
@@ -535,7 +535,7 @@ export default function DashboardPage() {
                     tick={{ fontSize: 11, fill: colors.textMuted }}
                     axisLine={false}
                     tickLine={false}
-                    width={28}
+                    width={32}
                   />
                   <Tooltip
                     contentStyle={{
