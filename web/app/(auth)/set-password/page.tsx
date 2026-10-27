@@ -20,6 +20,9 @@ const schema = z
 
 type FormData = z.infer<typeof schema>;
 
+const INVALID_LINK_MESSAGE =
+  "Este enlace no es válido o expiró. Podés pedir uno nuevo desde «¿Olvidaste tu contraseña?» o pedirle a un administrador que te reenvíe la invitación.";
+
 function SetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -36,7 +39,7 @@ function SetPasswordForm() {
   const onSubmit = async (data: FormData) => {
     setError(null);
     if (!token) {
-      setError("El enlace no es válido");
+      setError(INVALID_LINK_MESSAGE);
       return;
     }
     try {
@@ -44,19 +47,22 @@ function SetPasswordForm() {
       setDone(true);
       setTimeout(() => router.push("/login"), 2000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "El enlace no es válido o expiró");
+      setError(e instanceof Error ? e.message : INVALID_LINK_MESSAGE);
     }
   };
 
   if (!token) {
     return (
       <div className="w-full space-y-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 shadow-xl text-center">
-        <p className="text-sm text-red-500 dark:text-red-400">
-          Este enlace no es válido. Pedile a un administrador que te reenvíe la invitación.
-        </p>
-        <Link href="/login" className="text-sm text-brand-blue hover:underline">
-          Ir a iniciar sesión
-        </Link>
+        <p className="text-sm text-red-500 dark:text-red-400">{INVALID_LINK_MESSAGE}</p>
+        <div className="flex flex-col items-center gap-2">
+          <Link href="/olvide-contrasena" className="text-sm text-brand-blue hover:underline">
+            Pedir un enlace nuevo
+          </Link>
+          <Link href="/login" className="text-sm text-brand-blue hover:underline">
+            Ir a iniciar sesión
+          </Link>
+        </div>
       </div>
     );
   }
@@ -114,7 +120,14 @@ function SetPasswordForm() {
           )}
         </div>
 
-        {error && <p className="text-sm text-red-500 dark:text-red-400 text-center">{error}</p>}
+        {error && (
+          <div className="space-y-1 text-center">
+            <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
+            <Link href="/olvide-contrasena" className="text-sm text-brand-blue hover:underline">
+              Pedir un enlace nuevo
+            </Link>
+          </div>
+        )}
 
         <button
           type="submit"

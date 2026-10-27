@@ -5,7 +5,7 @@ from core.config import settings
 from core.database import get_db
 from dependencies.auth import get_current_user, verify_client
 from services.auth_service import AuthService
-from schemas.password_reset import SetPasswordRequest
+from schemas.password_reset import ForgotPasswordRequest, SetPasswordRequest
 from schemas.user import ChangePasswordRequest, RefreshRequest, TokenResponse, UserRegister
 from models.user import User
 
@@ -48,6 +48,14 @@ async def set_password(
     db: AsyncSession = Depends(get_db),
 ):
     await AuthService(db).set_password(data.token, data.new_password)
+
+
+@router.post("/forgot-password", status_code=204)
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    await AuthService(db).forgot_password(str(data.email))
 
 
 @router.post("/change-password", status_code=204)
