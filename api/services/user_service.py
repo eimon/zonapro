@@ -65,13 +65,30 @@ class UserService:
     async def get_all(self, skip: int = 0, limit: int = 100) -> list[User]:
         return await self.repo.get_all(skip=skip, limit=limit)
 
+    async def get_deleted(self, skip: int = 0, limit: int = 100) -> list[User]:
+        return await self.repo.get_deleted(skip=skip, limit=limit)
+
+    async def restore(self, id: uuid.UUID) -> User:
+        user = await self.repo.get_by_id(id)
+        if not user:
+            raise NotFoundException("Usuario no encontrado")
+        if user.deleted_at is None:
+            raise BadRequestException("El usuario no está eliminado")
+        return await self.repo.restore(user)
+
     async def update(self, id: uuid.UUID, data: UserUpdate) -> User:
+        await self._get_active(id)
         user = await self.repo.update(id, data)
         if not user:
             raise NotFoundException("Usuario no encontrado")
         return user
 
     async def delete(self, id: uuid.UUID) -> None:
-        result = await self.repo.soft_delete(id)
-        if not result:
+        await self._get_active(id)
+        await self.repo.soft_delete(id)
+
+    async def _get_active(self, id: uuid.UUID) -> User:
+        user = await self.repo.get_by_id(id)
+        if not user or user.deleted_at is not None:
             raise NotFoundException("Usuario no encontrado")
+        return user

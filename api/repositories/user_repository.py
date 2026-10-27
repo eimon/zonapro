@@ -47,6 +47,25 @@ class UserRepository(BaseRepository[User]):
         await self.db.refresh(user)
         return user
 
+    async def get_deleted(self, skip: int = 0, limit: int = 100) -> list[User]:
+        result = await self.db.execute(
+            select(User)
+            .where(User.deleted_at.is_not(None))
+            .order_by(User.deleted_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def restore(self, user: User) -> User:
+        # Devuelve al usuario tal como estaba: contraseña, rol y estado de
+        # invitación se mantienen.
+        user.deleted_at = None
+        user.is_active = True
+        await self.db.flush()
+        await self.db.refresh(user)
+        return user
+
     async def create_self_registered(
         self, nombre: str, apellido: str, email: str, password: str
     ) -> User:

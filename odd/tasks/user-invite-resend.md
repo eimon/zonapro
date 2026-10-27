@@ -18,6 +18,7 @@ Allow admins to resend an expired user invitation, and to re-invite a user that 
 ## Tasks
 - [x] T1 (delegated: 2+ non-trivial files) API: resend endpoint + restore soft-deleted user on create
 - [x] T2 (delegated, same writer) Web: resend button in users list
+- [x] T3 (delegated: 2+ non-trivial files) Restore deleted users: list deleted + `POST /users/{id}/restore` + "Ver eliminados" toggle with restore button. Restore keeps password/role (user returns as it was).
 
 ## Acceptance
 - Resend on a pending user invalidates previous unused tokens and emails a fresh link.
@@ -28,3 +29,4 @@ Allow admins to resend an expired user invitation, and to re-invite a user that 
 ## Progress
 - Branch `fix/user-invite-resend` created.
 - T1+T2 verified: `import main` ok; eslint (web container) exit 0; `tsc --noEmit` exit 0. Runtime not exercised (would send real email).
+- T3 verified: `import main` ok; runtime check vs dev DB (rolled back) passed; eslint exit 0; tsc exit 0. UI not checked in browser.
