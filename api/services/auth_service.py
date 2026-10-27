@@ -1,7 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import settings
+from core.email import send_password_reset_email
 from repositories.app_setting_repository import AppSettingRepository
 from repositories.password_reset_token_repository import PasswordResetTokenRepository
 from repositories.user_repository import UserRepository
@@ -10,6 +11,7 @@ from models.user import User
 from core.security import (
     create_access_token,
     decode_token_allow_expired,
+    generate_refresh_token,
     get_password_hash,
     hash_refresh_token,
     verify_password,
@@ -86,6 +88,23 @@ class AuthService:
 
         await self.repo.set_password(user, get_password_hash(new_password))
         await self.token_repo.mark_used(reset_token)
+
+    async def forgot_password(self, email: str) -> None:
+        # Always succeeds silently so the endpoint can't be used to enumerate accounts.
+        user = await self.repo.get_by_email(email)
+        if not user or user.deleted_at is not None or not user.is_active:
+            return
+
+        await self.token_repo.invalidate_unused_for_user(user.id)
+        raw_token, token_hash = generate_refresh_token()
+        expires_at = datetime.now(timezone.utc) + timedelta(
+            hours=settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS
+        )
+        await self.token_repo.create(user.id, token_hash, expires_at)
+
+        reset_url = f"{settings.FRONTEND_URL}/set-password?token={raw_token}"
+        api_key = await self.setting_repo.get_value("resend_api_key")
+        send_password_reset_email(user.email, user.nombre, reset_url, api_key=api_key)
 
     async def change_password(self, user: User, current_password: str, new_password: str) -> None:
         if not verify_password(current_password, user.hashed_password):

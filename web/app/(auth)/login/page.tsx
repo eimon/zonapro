@@ -80,6 +80,11 @@ export default function LoginPage() {
           {errors.password && (
             <p className="text-xs text-red-500 dark:text-red-400">{errors.password.message}</p>
           )}
+          <div className="text-right">
+            <Link href="/olvide-contrasena" className="text-xs font-medium text-brand-blue hover:underline">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
         </div>
 
         {error && (

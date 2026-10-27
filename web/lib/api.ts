@@ -437,6 +437,12 @@ export const api = {
     me: (token: string) =>
       request<UserMe>("/api/v1/users/me", {}, token),
 
+    forgotPassword: (email: string) =>
+      request<void>("/api/v1/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }),
+
     setPassword: (token: string, new_password: string) =>
       request<void>("/api/v1/auth/set-password", {
         method: "POST",
