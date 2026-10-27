@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import update
 from sqlalchemy.future import select
 from models.password_reset_token import PasswordResetToken
 from repositories.base import BaseRepository
@@ -33,4 +34,15 @@ class PasswordResetTokenRepository(BaseRepository[PasswordResetToken]):
 
     async def mark_used(self, token: PasswordResetToken) -> None:
         token.used_at = datetime.now(timezone.utc)
+        await self.db.flush()
+
+    async def invalidate_unused_for_user(self, user_id: uuid.UUID) -> None:
+        await self.db.execute(
+            update(PasswordResetToken)
+            .where(
+                PasswordResetToken.user_id == user_id,
+                PasswordResetToken.used_at.is_(None),
+            )
+            .values(used_at=datetime.now(timezone.utc))
+        )
         await self.db.flush()

@@ -483,6 +483,12 @@ export const api = {
       }, token),
     remove: (id: string, token: string) =>
       request<void>(`/api/v1/users/${id}`, { method: "DELETE" }, token),
+    resendInvite: (id: string, token: string) =>
+      request<void>(`/api/v1/users/${id}/resend-invite`, { method: "POST" }, token),
+    listDeleted: (token: string) =>
+      request<UserMe[]>("/api/v1/users/deleted", {}, token),
+    restore: (id: string, token: string) =>
+      request<UserMe>(`/api/v1/users/${id}/restore`, { method: "POST" }, token),
   },
 
   categories: {

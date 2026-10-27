@@ -27,6 +27,16 @@ async def list_users(
     return await UserService(db).get_all(skip=skip, limit=limit)
 
 
+@router.get("/deleted", response_model=list[UserResponse])
+async def list_deleted_users(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(has_role(Permission.USER_MANAGE)),
+):
+    return await UserService(db).get_deleted(skip=skip, limit=limit)
+
+
 @router.post("/", response_model=UserResponse, status_code=201)
 async def create_user(
     data: UserCreate,
@@ -44,6 +54,24 @@ async def update_user(
     _: User = Depends(has_role(Permission.USER_MANAGE)),
 ):
     return await UserService(db).update(user_id, data)
+
+
+@router.post("/{user_id}/resend-invite", status_code=204)
+async def resend_invite(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(has_role(Permission.USER_MANAGE)),
+):
+    await UserService(db).resend_invite(user_id)
+
+
+@router.post("/{user_id}/restore", response_model=UserResponse)
+async def restore_user(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(has_role(Permission.USER_MANAGE)),
+):
+    return await UserService(db).restore(user_id)
 
 
 @router.delete("/{user_id}", status_code=204)
