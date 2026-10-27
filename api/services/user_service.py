@@ -9,7 +9,7 @@ from repositories.password_reset_token_repository import PasswordResetTokenRepos
 from repositories.user_repository import UserRepository
 from schemas.user import UserCreate, UserUpdate
 from models.user import User
-from exceptions.general import NotFoundException, ConflictException
+from exceptions.general import NotFoundException, ConflictException, BadRequestException
 
 
 class UserService:
@@ -20,11 +20,32 @@ class UserService:
 
     async def create(self, data: UserCreate) -> User:
         existing = await self.repo.get_by_email(data.email)
-        if existing:
+        if existing and existing.deleted_at is None:
             raise ConflictException("Ya existe un usuario con ese email")
 
-        user = await self.repo.create(data)
+        if existing:
+            # El email es único en la DB: un usuario eliminado (soft delete) se
+            # restaura con los datos nuevos en vez de crear una fila duplicada.
+            user = await self.repo.restore_for_invite(existing, data)
+            await self.token_repo.invalidate_unused_for_user(user.id)
+        else:
+            user = await self.repo.create(data)
 
+        await self._send_invite(user)
+        return user
+
+    async def resend_invite(self, id: uuid.UUID) -> None:
+        user = await self.repo.get_by_id(id)
+        if not user or user.deleted_at is not None:
+            raise NotFoundException("Usuario no encontrado")
+        if not user.must_change_password:
+            raise BadRequestException("El usuario ya activó su cuenta")
+
+        # Solo el link más reciente debe servir.
+        await self.token_repo.invalidate_unused_for_user(user.id)
+        await self._send_invite(user)
+
+    async def _send_invite(self, user: User) -> None:
         raw_token, token_hash = generate_refresh_token()
         expires_at = datetime.now(timezone.utc) + timedelta(
             hours=settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS
@@ -34,8 +55,6 @@ class UserService:
         set_password_url = f"{settings.FRONTEND_URL}/set-password?token={raw_token}"
         api_key = await self.setting_repo.get_value("resend_api_key")
         send_invite_email(user.email, user.nombre, user.role.value, set_password_url, api_key=api_key)
-
-        return user
 
     async def get_by_id(self, id: uuid.UUID) -> User:
         user = await self.repo.get_by_id(id)

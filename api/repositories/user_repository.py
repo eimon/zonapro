@@ -33,6 +33,20 @@ class UserRepository(BaseRepository[User]):
         await self.db.refresh(obj)
         return obj
 
+    async def restore_for_invite(self, user: User, data: UserCreate) -> User:
+        # Reactiva un usuario eliminado como invitación pendiente; la contraseña
+        # anterior se descarta y se reemplaza por un placeholder aleatorio.
+        user.deleted_at = None
+        user.is_active = True
+        user.must_change_password = True
+        user.nombre = data.nombre
+        user.apellido = data.apellido
+        user.role = data.role
+        user.hashed_password = get_password_hash(secrets.token_urlsafe(32))
+        await self.db.flush()
+        await self.db.refresh(user)
+        return user
+
     async def create_self_registered(
         self, nombre: str, apellido: str, email: str, password: str
     ) -> User:

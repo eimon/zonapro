@@ -46,6 +46,15 @@ async def update_user(
     return await UserService(db).update(user_id, data)
 
 
+@router.post("/{user_id}/resend-invite", status_code=204)
+async def resend_invite(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(has_role(Permission.USER_MANAGE)),
+):
+    await UserService(db).resend_invite(user_id)
+
+
 @router.delete("/{user_id}", status_code=204)
 async def delete_user(
     user_id: uuid.UUID,

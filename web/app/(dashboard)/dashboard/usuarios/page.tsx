@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type UserMe } from "@/lib/api";
 import { getRole, getToken } from "@/lib/auth";
-import { Plus, Search, Shield, Trash2, UserRound } from "lucide-react";
+import { Plus, Search, Send, Shield, Trash2, UserRound } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
@@ -65,7 +65,20 @@ function EmptyState({ search }: { search: string }) {
   );
 }
 
-function UserCard({ user, onDelete }: { user: UserMe; onDelete: (id: string) => void }) {
+const RESEND_BUTTON_CLASS =
+  "p-1.5 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
+
+function UserCard({
+  user,
+  onDelete,
+  onResend,
+  resending,
+}: {
+  user: UserMe;
+  onDelete: (id: string) => void;
+  onResend: (id: string) => void;
+  resending: boolean;
+}) {
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm">
       <div className="flex items-start gap-3">
@@ -82,6 +95,16 @@ function UserCard({ user, onDelete }: { user: UserMe; onDelete: (id: string) => 
           </p>
           <p className="text-xs text-zinc-400 dark:text-zinc-500 truncate">{user.email}</p>
         </div>
+        {user.is_active && user.must_change_password && (
+          <button
+            title="Reenviar invitación"
+            onClick={() => onResend(user.id)}
+            disabled={resending}
+            className={`${RESEND_BUTTON_CLASS} shrink-0`}
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        )}
         <button
           title="Eliminar"
           onClick={() => onDelete(user.id)}
@@ -119,6 +142,8 @@ export default function UsuariosPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (getRole() !== "ADMIN") {
@@ -141,11 +166,28 @@ export default function UsuariosPage() {
     const token = getToken();
     if (!token) return;
     setError(null);
+    setNotice(null);
     try {
       await api.users.remove(id, token);
       setUsers((prev) => prev.filter((u) => u.id !== id));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al eliminar el usuario");
+    }
+  };
+
+  const handleResend = async (id: string) => {
+    const token = getToken();
+    if (!token) return;
+    setError(null);
+    setNotice(null);
+    setResendingId(id);
+    try {
+      await api.users.resendInvite(id, token);
+      setNotice("Invitación reenviada");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al reenviar la invitación");
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -191,6 +233,7 @@ export default function UsuariosPage() {
       </div>
 
       {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
+      {notice && <p className="text-sm text-emerald-600 dark:text-emerald-400">{notice}</p>}
 
       {/* Table (desktop) */}
       <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-x-auto shadow-sm">
@@ -269,6 +312,16 @@ export default function UsuariosPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                      {user.is_active && user.must_change_password && (
+                        <button
+                          title="Reenviar invitación"
+                          onClick={() => handleResend(user.id)}
+                          disabled={resendingId === user.id}
+                          className={RESEND_BUTTON_CLASS}
+                        >
+                          <Send className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
                         title="Eliminar"
                         onClick={() => handleDelete(user.id)}
@@ -296,7 +349,15 @@ export default function UsuariosPage() {
         ) : filtered.length === 0 ? (
           <EmptyState search={search} />
         ) : (
-          filtered.map((user) => <UserCard key={user.id} user={user} onDelete={handleDelete} />)
+          filtered.map((user) => (
+            <UserCard
+              key={user.id}
+              user={user}
+              onDelete={handleDelete}
+              onResend={handleResend}
+              resending={resendingId === user.id}
+            />
+          ))
         )}
       </div>
     </div>
