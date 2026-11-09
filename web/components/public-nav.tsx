@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { href: "/", label: "Inicio" },
   { href: "/#servicios", label: "Servicios" },
   { href: "/productos", label: "Tienda" },
+  { href: "/woodframe", label: "WoodFrame" },
   { href: "/consulta", label: "Contacto" },
 ];
 
